@@ -1,0 +1,70 @@
+[
+  {
+    "name": "The Foyer",
+    "chapter": "west_wing",
+    "platforms": [
+      [0, 460, 800, 40],
+      [150, 360, 140, 20],
+      [350, 280, 140, 20],
+      [580, 200, 140, 20],
+      [100, 200, 120, 20]
+    ],
+    "key": [620, 160],
+    "door": [20, 150, 50, 90],
+    "monsters": [],
+    "player_start": [40, 400],
+    "scroll": "You are not the first to wake here...",
+    "scroll_pos": [80, 430]
+  },
+  {
+    "name": "The Hallway",
+    "chapter": "old_hallways",
+    "platforms": [
+      [0, 460, 800, 40],
+      [250, 380, 150, 20],
+      [500, 300, 150, 20]
+    ],
+    "key": [700, 400],
+    "door": [20, 380, 50, 80],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 300,
+        "y": 426,
+        "size": 34,
+        "color": [140, 60, 60],
+        "speed": 2.5,
+        "range": [250, 550]
+      }
+    ],
+    "player_start": [40, 400],
+    "scroll": "Something loose walks the halls ahead - it keeps to a pattern...",
+    "scroll_pos": [270, 350]
+  },
+  {
+    "name": "The Crypt",
+    "chapter": "the_crypts",
+    "platforms": [
+      [0, 460, 800, 40],
+      [200, 380, 130, 20],
+      [450, 380, 130, 20]
+    ],
+    "key": [720, 400],
+    "door": [20, 380, 50, 80],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 500,
+        "y": 426,
+        "size": 34,
+        "color": [120, 40, 130],
+        "speed": 2.2,
+        "detect_radius": 160,
+        "sleep_radius": 260
+      }
+    ],
+    "player_start": [40, 400],
+    "scroll": "You will see him before you understand what you are seeing...",
+    "scroll_pos": [220, 350]
+  }
+]

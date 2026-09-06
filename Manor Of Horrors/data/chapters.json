@@ -1,0 +1,25 @@
+{
+  "west_wing": {
+    "display_name": "The West Wing",
+    "style": "moonlit",
+    "sky": [30, 24, 46],
+    "accent": [210, 210, 160],
+    "stars": [[100, 50], [250, 30], [450, 70], [600, 40]],
+    "difficulty": 1.0
+  },
+  "old_hallways": {
+    "display_name": "The Old Hallways",
+    "style": "cobweb",
+    "sky": [26, 20, 32],
+    "accent": [55, 48, 60],
+    "difficulty": 1.15
+  },
+  "the_crypts": {
+    "display_name": "The Crypts",
+    "style": "torchlit",
+    "sky": [16, 10, 20],
+    "accent": [140, 70, 30],
+    "torch_x": [120, 680],
+    "difficulty": 1.3
+  }
+}
