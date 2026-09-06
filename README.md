@@ -50,12 +50,12 @@ The game is intentionally split into three layers so that **content** (rooms, ch
 
 ```mermaid
 flowchart TB
-    subgraph Data["📄 Data Layer (JSON)"]
+    subgraph Data["Data Layer (JSON)"]
         rooms["data/rooms.json<br/>(layout, platforms, keys, doors, monsters)"]
         chapters["data/chapters.json<br/>(theme, difficulty multiplier)"]
     end
 
-    subgraph Engine["⚙️ Engine Layer (Python)"]
+    subgraph Engine["Engine Layer (Python)"]
         loader["load_json_data()"]
         monster["Monster class<br/>(patroller / chaser behaviors)"]
         roomloop["play_room()<br/>(physics, collisions, win/lose)"]
@@ -63,7 +63,7 @@ flowchart TB
         render["draw_background / draw_player / draw_monster"]
     end
 
-    subgraph Flow["🎮 Game Flow"]
+    subgraph Flow["Game Flow"]
         main["main()"]
         loading["Loading Screen"]
         mainmenu["Main Menu"]
