@@ -326,7 +326,17 @@ def show_loading_screen(font, big_font):
         clock.tick(60)
 
 
-def show_main_menu(font, big_font):
+def show_chapter_complete(chapter_key, font, big_font):
+    """
+    Milestone 6: shown once when the player finishes the LAST room
+    of a chapter, using that chapter's display_name from chapters.json.
+    """
+    chapter_name = CHAPTERS[chapter_key]["display_name"]
+    wait_for_space(
+        font, big_font,
+        [f"{chapter_name} complete."],
+        title="WING COMPLETE",
+    )
     choice = run_menu(
         "HALLOWED GROUNDS",
         ["Start Game", "Quit"],
