@@ -337,6 +337,9 @@ def show_chapter_complete(chapter_key, font, big_font):
         [f"{chapter_name} complete."],
         title="WING COMPLETE",
     )
+
+
+def show_main_menu(font, big_font):
     choice = run_menu(
         "HALLOWED GROUNDS",
         ["Start Game", "Quit"],
@@ -744,6 +747,19 @@ def main():
                 # resume at the NEXT room, not replay the one they
                 # just finished.
                 write_save(slot_number, room_index + 1, lives, collected_scrolls)
+
+                # Milestone 6: detect if this was the last room of its
+                # chapter, by comparing this room's chapter to the
+                # NEXT room's chapter. If there's no next room at all
+                # (room_index + 1 is past the end of ROOMS), treat
+                # that the same way - the chapter (and the game) ended.
+                next_index = room_index + 1
+                is_last_room_of_chapter = (
+                    next_index >= len(ROOMS)
+                    or ROOMS[next_index]["chapter"] != room["chapter"]
+                )
+                if is_last_room_of_chapter:
+                    show_chapter_complete(room["chapter"], font, big_font)
 
         if sent_back_to_menu:
             continue  # skip the victory screen, go straight back to the main menu
