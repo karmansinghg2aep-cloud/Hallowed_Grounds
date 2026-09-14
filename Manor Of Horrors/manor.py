@@ -100,6 +100,30 @@ def write_save(slot_number, room_index, lives, collected_scrolls):
         json.dump(data, f)
 
 
+def settings_filepath():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(script_dir, "data", "settings.json")
+
+
+def load_settings():
+    """
+    Returns the saved settings dict, or sensible defaults if no
+    settings file exists yet (first time the game is ever run).
+    """
+    filepath = settings_filepath()
+    if not os.path.exists(filepath):
+        return {"volume": 70, "show_chapter_transitions": True}
+    with open(filepath, "r") as f:
+        return json.load(f)
+
+
+def write_settings(settings):
+    filepath = settings_filepath()
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, "w") as f:
+        json.dump(settings, f)
+
+
 # =====================================================================
 # MONSTER - one class, two behaviors ("patroller" and "chaser")
 # =====================================================================
@@ -217,6 +241,25 @@ def draw_background(surface, theme):
 # chapter by its key.
 # =====================================================================
 CHAPTERS = load_json_data("chapters.json")
+
+
+def get_room_display_name(room_index):
+    """
+    Builds a room's display name automatically, e.g. "The West Wing -
+    Room 2", instead of requiring every room in rooms.json to have its
+    own hand-written "name". Counts how many earlier rooms share this
+    room's chapter, to figure out which number this room is WITHIN
+    its chapter (not its position in the whole 50-room list).
+    """
+    room = ROOMS[room_index]
+    chapter_name = CHAPTERS[room["chapter"]]["display_name"]
+
+    position_in_chapter = 1
+    for earlier_room in ROOMS[:room_index]:
+        if earlier_room["chapter"] == room["chapter"]:
+            position_in_chapter += 1
+
+    return f"{chapter_name} - Room {position_in_chapter}"
 
 
 # =====================================================================
@@ -339,14 +382,50 @@ def show_chapter_complete(chapter_key, font, big_font):
     )
 
 
+def show_settings(settings, font, big_font):
+    """
+    Lets the player adjust volume (0-100, step 10) and toggle the
+    chapter-transition screen on/off. Loops showing a menu until the
+    player picks Back, saving to disk after every change so nothing
+    is lost even if they quit without going back first.
+    """
+    while True:
+        volume_label = f"Volume: {settings['volume']}"
+        transitions_label = "Chapter Transition Screens: " + ("On" if settings["show_chapter_transitions"] else "Off")
+
+        choice = run_menu(
+            "SETTINGS",
+            [volume_label + " (- / +)", transitions_label + " (toggle)", "Back"],
+            font, big_font,
+        )
+
+        if choice.startswith("Volume"):
+            # A single confirm press bumps volume up by 10, wrapping
+            # back to 0 past 100 - keeps this screen to one menu
+            # instead of needing separate +/- buttons.
+            settings["volume"] = (settings["volume"] + 10) % 110
+            pygame.mixer.music.set_volume(settings["volume"] / 100)
+            write_settings(settings)
+        elif choice.startswith("Chapter Transition"):
+            settings["show_chapter_transitions"] = not settings["show_chapter_transitions"]
+            write_settings(settings)
+        else:
+            return
+
+
 def show_main_menu(font, big_font):
     choice = run_menu(
         "HALLOWED GROUNDS",
-        ["Start Game", "Quit"],
+        ["Start Game", "Settings", "Quit"],
         font, big_font,
         subtitle="A pixel-art escape room platformer",
     )
-    return "start" if choice == "Start Game" else "quit"
+    if choice == "Start Game":
+        return "start"
+    elif choice == "Settings":
+        return "settings"
+    else:
+        return "quit"
 
 
 def show_slot_picker(font, big_font):
@@ -485,7 +564,7 @@ def show_journal(collected_scrolls, font, big_font):
         show_scroll(font, big_font, scroll_text, title=title)
 
 
-def play_room(room, lives, collected_scrolls, font, big_font):
+def play_room(room, room_index, lives, collected_scrolls, font, big_font):
     """
     Runs one room until the player either escapes it, loses all
     their lives, or pauses and quits to the menu.
@@ -603,7 +682,7 @@ def play_room(room, lives, collected_scrolls, font, big_font):
                 player_x = max(0, min(WINDOW_WIDTH - PLAYER_WIDTH, player_x))
 
                 if lives <= 0:
-                    return "dead", lives, {"monster_kind": monster.kind, "room_name": room["name"]}
+                    return "dead", lives, {"monster_kind": monster.kind, "room_name": get_room_display_name(room_index)}
                 break  # only lose one life per hit, even with multiple monsters
 
         if has_key and player_rect.colliderect(door_rect):
@@ -632,7 +711,7 @@ def play_room(room, lives, collected_scrolls, font, big_font):
             player_color = COLOR_PLAYER_HIT if invincible_timer > 0 else COLOR_PLAYER
             draw_player(screen, player_rect, player_color)
 
-        room_name_surf = font.render(room["name"], True, COLOR_TEXT)
+        room_name_surf = font.render(get_room_display_name(room_index), True, COLOR_TEXT)
         screen.blit(room_name_surf, (WINDOW_WIDTH - room_name_surf.get_width() - 10, 10))
         draw_lives(screen, font, lives)
 
@@ -676,12 +755,18 @@ def main():
     font = pygame.font.SysFont(None, 28)
     big_font = pygame.font.SysFont(None, 48)
 
+    settings = load_settings()
+    pygame.mixer.music.set_volume(settings["volume"] / 100)
+
     show_loading_screen(font, big_font)
 
     while True:
         menu_choice = show_main_menu(font, big_font)
         if menu_choice == "quit":
             break  # exits the outer while loop, game closes below
+        elif menu_choice == "settings":
+            show_settings(settings, font, big_font)
+            continue  # back to the main menu after adjusting settings
 
         slot_number, save_data = show_slot_picker(font, big_font)
 
@@ -728,7 +813,7 @@ def main():
         # rooms (ROOMS[starting_room_index:]) - so saves always record
         # the correct absolute position in the full ROOMS list.
         for room_index, room in enumerate(ROOMS[starting_room_index:], start=starting_room_index):
-            result, lives, death_info = play_room(room, lives, collected_scrolls, font, big_font)
+            result, lives, death_info = play_room(room, room_index, lives, collected_scrolls, font, big_font)
 
             if result == "dead":
                 wait_for_space(
@@ -758,7 +843,7 @@ def main():
                     next_index >= len(ROOMS)
                     or ROOMS[next_index]["chapter"] != room["chapter"]
                 )
-                if is_last_room_of_chapter:
+                if is_last_room_of_chapter and settings["show_chapter_transitions"]:
                     show_chapter_complete(room["chapter"], font, big_font)
 
         if sent_back_to_menu:
