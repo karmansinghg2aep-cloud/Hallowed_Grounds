@@ -1,863 +1,2399 @@
 """
-HAUNTED MANSION ESCAPE - Main Engine
-------------------------------------------
-A data-driven room system: the ROOMS list at the bottom holds every
-room's layout. To add a new room later, you just add a new entry to
-that list - you don't need to touch the engine code above it.
+HALLOWED GROUNDS
+A 2D escape-room platformer told through recovered VHS tapes.
 
-Two reusable monster behaviors power every monster in the game:
-- "patroller": walks back and forth between two x positions, ignores you
-- "chaser": sleeps until you're close, then chases you
+Files this game needs (all in the same folder as manor.py):
+    visuals.py, sound.py, analog.py   the pictures, the audio and the "old tape" look
+    data/chapters.json                the look and difficulty of each tape (chapter)
+    data/rooms.json                   every room, its monsters, and its tape text
+    data/extras.json                  notes, secrets, safe rooms, dark rooms, hiding spots (optional)
+    data/settings.json                made automatically
+    data/saves/save1..3.json          made automatically
 
-Different monsters (werewolf, vampire, zombie, etc.) are just these
-two behaviors with different colors, speeds, and names.
+Run it with:   python3 manor.py
+Check where the extras landed in every room:   python3 manor.py --check
+
+HOW THIS FILE IS ORGANIZED (top to bottom):
+    1.  Constants
+    2.  Loading data, settings and saves
+    3.  Small helper functions (including where extras are placed)
+    4.  The Monster class
+    5.  Drawing functions
+    6.  Menus and screens (including the ending)
+    7.  play_room()  - the heart of the game
+    8.  run_game() and main() - the flow between rooms
 """
+import json
+import math
+import os
+import random
+import sys
 
 import pygame
-import json
-import os
 
-pygame.init()
 
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 500
-screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-pygame.display.set_caption("Hallowed Grounds")
+# If sound.py or analog.py are missing, the game still runs (silent / clean picture).
+class _NoParticles:
+    """Stands in for the particle system so the player sprite has nowhere to put its dust puffs."""
+    def emit(self, *args, **kwargs):
+        pass
 
-# ---- COLORS ----
-COLOR_BG = (18, 14, 26)
-COLOR_PLATFORM = (90, 80, 110)
-COLOR_PLAYER = (240, 220, 80)
-COLOR_PLAYER_HIT = (255, 90, 90)
-COLOR_KEY = (250, 200, 40)
-COLOR_DOOR_LOCKED = (120, 40, 40)
-COLOR_DOOR_OPEN = (60, 200, 90)
-COLOR_TEXT = (230, 230, 230)
-COLOR_LIFE_FULL = (220, 40, 60)
-COLOR_LIFE_EMPTY = (70, 40, 45)
+    def burst(self, *args, **kwargs):
+        pass
 
-# ---- PHYSICS SETTINGS ----
-GRAVITY = 0.7
-JUMP_STRENGTH = -14
+
+_NO_PARTICLES = _NoParticles()
+
+
+class _Silent:
+    """Stands in for a missing module. Every call does nothing."""
+    def __getattr__(self, name):
+        return lambda *args, **kwargs: None
+
+
+try:
+    import sound
+except ImportError:
+    sound = _Silent()
+try:
+    import analog
+except ImportError:
+    analog = _Silent()
+
+# An older analog.py has no set_boss (the boss-only glitch). Add a do-nothing version so the game still runs,
+# but you will only get the new "clean rooms, glitchy boss" look once analog.py is updated.
+if not hasattr(analog, "set_boss"):
+    analog.set_boss = lambda *args, **kwargs: None
+
+
+try:
+    import visuals
+except ImportError:
+    sys.exit("visuals.py is missing. Put it in the same folder as manor.py (next to sound.py and analog.py).")
+
+
+# ==================================================================
+# 1. CONSTANTS
+# ==================================================================
+WIDTH, HEIGHT = 800, 500
+FPS = 60
+
+# Player feel. Change these to change how the game plays!
+PLAYER_W, PLAYER_H = 28, 40
 MOVE_SPEED = 5
-PLAYER_WIDTH = 30
-PLAYER_HEIGHT = 40
+GRAVITY = 0.6
+JUMP_SPEED = -12.5
+MAX_FALL_SPEED = 14
+COYOTE_FRAMES = 6          # you can still jump for 6 frames after walking off a ledge
+JUMP_BUFFER_FRAMES = 6     # a jump pressed 6 frames too early still counts
+JUMP_CUT = -7.0            # letting go of jump early cuts the rise to this speed, so even a light tap is a real hop
+KNOCKBACK_FRAMES = 12
 
-STARTING_LIVES = 3
-INVINCIBILITY_FRAMES = 90  # ~1.5 seconds at 60fps
-KNOCKBACK_DISTANCE = 40  # how far sideways a hit pushes the player
+# Running and noise. Hold Shift to run: it is fast, but it costs stamina and it is LOUD.
+RUN_SPEED = 7
+STAMINA_MAX = 100.0
+STAMINA_DRAIN = 0.8        # stamina lost per frame while running (about 2 seconds of running)
+STAMINA_REGEN = 0.5        # stamina gained per frame while NOT running
+STAMINA_RECOVER = 30.0     # after you run out, you can only run again once stamina climbs back to this
+NOISE_RUN = 320            # how far away (pixels) a creature could hear a running step
+NOISE_WALK = 110           # ...and a walking step. Standing still makes no noise at all.
+NOISE_LIFE = 45            # frames a noise event lasts before it fades away
+
+# Hiding (lockers), the flashlight, and the Hush
+HIDE_KEYS = (pygame.K_DOWN, pygame.K_s, pygame.K_e)
+HIDE_FOUND_FRAMES = 150    # a Designation standing next to your locker this long finds you
+BATTERY_MAX = 100.0
+BATTERY_DRAIN = 0.015      # lost per frame in a dark room (about 110 seconds of light)
+BATTERY_PICKUP = 35.0
+LIGHT_R_MAX, LIGHT_R_MIN = 170, 70     # flashlight radius: full battery -> empty battery
+HUSH_SPEED = 2.0           # how fast the Hush roams the room
+HUSH_RANGE = 230           # how close (pixels, sideways) it has to be to swallow the sound
+HUSH_FADE_FRAMES = 120     # the sound fades away over 2 seconds. That fade is the warning.
+
+BUILD = "build 4: no dust puffs, no noise rings"     # shown in the window title so you can tell which file is running
+
+# Visual switches. True = shown, False = hidden.
+PLAYER_PUFFS = False        # the round dust puffs when you jump, land and walk (they come from visuals.py)
+SHOW_NOISE_RINGS = False    # the thin grey rings that show how far your footsteps carry (True = show them)
+
+DESIGNATIONS = ("patroller", "flyer", "chaser", "shooter")   # the creatures a locker hides you from
+
+KEY_SIZE = 30
+TAPE_W, TAPE_H = 26, 20
+NUM_SLOTS = 3
+
+JUMP_KEYS = (pygame.K_SPACE, pygame.K_UP, pygame.K_w)
+CONFIRM_KEYS = (pygame.K_RETURN, pygame.K_SPACE)
+
+BLACK = (0, 0, 0)
+WHITE = (235, 235, 235)
+GREY = (150, 145, 155)
+RED = (200, 60, 60)
+
+# Files and folders
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+SAVE_DIR = os.path.join(DATA_DIR, "saves")
+
+# The Guide's voice (calm, polite, wrong)
+GUIDE_LINES = [
+    "Thank you for your compliance. Your responses so far have been logged as typical.",
+    "You are not the first person to sit exactly where you are sitting now.",
+    "If a voice you recognize speaks to you from off-camera, that is not a reason to answer it.",
+    "This recording has been edited for your comfort. The unedited version exists.",
+    "Please remember: the Program does not end when the tape does. It has never once ended.",
+]
+GAME_OVER_LINES = [
+    "SUBJECT %d NOT RECOVERED. This footage has been marked for reuse.",
+    "Please remain still. Every subject who remained still was found. Eventually.",
+    "The Program regrets the interruption. It has regretted it %d times before.",
+    "TRACKING LOST. Rewinding to the last approved frame. This is routine.",
+    "You left the marked path. Subject %d also left the marked path.",
+]
+LOOP_NOTE = "NOTE 00 [SCRATCHED] THIS ROOM LOOKED SMALLER THE LAST TIME. I KEEP COUNTING THE SAME NUMBER."
+
+# Filled in when the game starts (see load_game_data / load_settings)
+CHAPTERS = {}          # chapter id -> its info from chapters.json
+CHAPTER_ORDER = []     # chapter ids in file order (tape 1, tape 2, ...)
+ROOMS = []             # every room from rooms.json
+EXTRAS = {}            # everything from extras.json (notes, secrets, safe rooms...)
+FIRST_SEEN_KIND = {}   # monster kind -> index of the first room it appears in (for a one-time jumpscare)
+RUN = {"battery": BATTERY_MAX}     # the flashlight battery is carried from room to room
+
+# These are saved in settings.json, so they survive quitting:
+#   subject_count  the Subject number. It NEVER resets.
+#   loops          how many times the player chose STAY at the ending
+#   ending         "", "stay" or "let_go"  (the last choice they made)
+#   secrets        room numbers whose secret wall has been opened
+#   twist_done     True once the "retired Subject number" has been shown (it only happens once)
+DEFAULT_SETTINGS = {"volume": 70, "chapter_intros": True, "difficulty": "normal",
+                    "subject_count": 0, "loops": 0, "ending": "", "secrets": [], "twist_done": False}
+settings = dict(DEFAULT_SETTINGS)
+settings["secrets"] = []
+FONTS = {}
+
+# Difficulty presets. Change these numbers to tune the game!
+#   lives           hearts you start each tape with
+#   monster_speed   every monster's speed is multiplied by this
+#   detect          how far away a chaser notices you
+#   fire            shooter delay between shots (bigger = slower shooting)
+#   projectile      speed of shooter bullets
+#   invincible      frames of safety after a hit (60 frames = 1 second)
+#   crumble         frames a crumbling platform lasts once you stand on it
+#   pit_costs_life  does falling into a pit cost a heart?
+DIFFICULTIES = ["easy", "normal", "hard"]
+PRESETS = {
+    "easy":   {"lives": 5, "monster_speed": 0.85, "detect": 0.90, "fire": 1.25, "projectile": 0.90,
+               "invincible": 100, "crumble": 70, "pit_costs_life": False},
+    "normal": {"lives": 3, "monster_speed": 1.10, "detect": 1.10, "fire": 0.90, "projectile": 1.05,
+               "invincible": 80, "crumble": 45, "pit_costs_life": True},
+    "hard":   {"lives": 2, "monster_speed": 1.30, "detect": 1.25, "fire": 0.75, "projectile": 1.15,
+               "invincible": 60, "crumble": 30, "pit_costs_life": True},
+}
 
 
-def load_json_data(filename):
-    """
-    Loads a JSON file from the 'data' folder that sits next to this
-    script - using the script's own location (not wherever the game
-    happens to be launched from) so it works no matter what folder
-    you run the game from.
-    """
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    filepath = os.path.join(script_dir, "data", filename)
-    with open(filepath, "r") as f:
-        return json.load(f)
+def preset():
+    """The settings for the difficulty the player picked."""
+    return PRESETS.get(settings.get("difficulty", "normal"), PRESETS["normal"])
 
 
-def save_filepath(slot_number):
-    """
-    Builds the path to a given save slot's file, e.g. slot 1 ->
-    .../data/saves/save1.json. Using the script's own location, same
-    reasoning as load_json_data, so it works regardless of which
-    folder the game gets launched from.
-    """
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(script_dir, "data", "saves", f"save{slot_number}.json")
+def max_lives():
+    return preset()["lives"]
 
 
-def load_save(slot_number):
-    """
-    Returns the saved progress dict for this slot, or None if this
-    slot has never been saved to (empty slot).
-    """
-    filepath = save_filepath(slot_number)
-    if not os.path.exists(filepath):
-        return None
-    with open(filepath, "r") as f:
-        return json.load(f)
+# ==================================================================
+# 2. LOADING DATA, SETTINGS AND SAVES
+# ==================================================================
+def load_json(filename):
+    """Reads a JSON file. If it has a typo, says WHERE (a great habit to learn)."""
+    path = os.path.join(DATA_DIR, filename)
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        sys.exit("Can't find %s. Is the data folder next to manor.py?" % path)
+    except json.JSONDecodeError as e:
+        sys.exit("%s has a typo near line %d, column %d: %s" % (filename, e.lineno, e.colno, e.msg))
 
 
-def write_save(slot_number, room_index, lives, collected_scrolls):
-    """
-    Writes the current progress to this save slot, creating the
-    'saves' folder the first time any save happens.
-    """
-    filepath = save_filepath(slot_number)
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    data = {
-        "room_index": room_index,
-        "lives": lives,
-        "collected_scrolls": collected_scrolls,
-    }
-    with open(filepath, "w") as f:
-        json.dump(data, f)
+def load_extras():
+    """data/extras.json is optional. Without it the game plays like the old version."""
+    EXTRAS.clear()
+    path = os.path.join(DATA_DIR, "extras.json")
+    if not os.path.exists(path):
+        return
+    data = load_json("extras.json")
+    if isinstance(data, dict):
+        EXTRAS.update(data)
+    else:
+        sys.exit("extras.json should start with { but it holds a %s." % type(data).__name__)
 
 
-def settings_filepath():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(script_dir, "data", "settings.json")
+def load_game_data():
+    """Loads chapters.json and rooms.json, then checks them for mistakes."""
+    chapters = load_json("chapters.json")
+    if not isinstance(chapters, dict):
+        sys.exit('chapters.json should start with { (a dictionary of chapters) but it holds a %s. '
+                 'Did rooms.json get copied into chapters.json by mistake?' % type(chapters).__name__)
+    for name, info in chapters.items():
+        if not isinstance(info, dict):
+            sys.exit('chapters.json: chapter "%s" should be a { } block, but it is a %s.' % (name, type(info).__name__))
+    CHAPTERS.clear()
+    CHAPTERS.update(chapters)
+    CHAPTER_ORDER[:] = list(CHAPTERS.keys())
+    rooms = load_json("rooms.json")
+    if not isinstance(rooms, list):
+        sys.exit('rooms.json should start with [ (a list of rooms) but it holds a %s. '
+                 'Did chapters.json get copied into rooms.json by mistake?' % type(rooms).__name__)
+    ROOMS[:] = rooms
+    validate_data()
+    load_extras()
+    FIRST_SEEN_KIND.clear()
+    for i, room in enumerate(ROOMS):
+        for m in room.get("monsters", []):
+            FIRST_SEEN_KIND.setdefault(m["kind"], i)
+
+
+def validate_data():
+    """Catches mistakes in the JSON files early, with a clear message."""
+    if not ROOMS:
+        sys.exit("rooms.json has no rooms in it.")
+    needed = ("chapter", "platforms", "key", "door", "player_start")
+    for i, room in enumerate(ROOMS):
+        for field in needed:
+            if field not in room:
+                sys.exit('rooms.json: room %d is missing "%s".' % (i + 1, field))
+        if room["chapter"] not in CHAPTERS:
+            sys.exit('rooms.json: room %d uses chapter "%s", which is not in chapters.json.'
+                     % (i + 1, room["chapter"]))
+    # A chapter's rooms must sit together, or "tape complete" would show too early.
+    seen, previous = set(), None
+    for room in ROOMS:
+        if room["chapter"] != previous and room["chapter"] in seen:
+            print('Warning: chapter "%s" appears in two separate groups of rooms.' % room["chapter"])
+        seen.add(room["chapter"])
+        previous = room["chapter"]
 
 
 def load_settings():
-    """
-    Returns the saved settings dict, or sensible defaults if no
-    settings file exists yet (first time the game is ever run).
-    """
-    filepath = settings_filepath()
-    if not os.path.exists(filepath):
-        return {"volume": 70, "show_chapter_transitions": True}
-    with open(filepath, "r") as f:
-        return json.load(f)
+    try:
+        with open(os.path.join(DATA_DIR, "settings.json")) as f:
+            saved = json.load(f)
+        for key in DEFAULT_SETTINGS:
+            if key in saved:
+                settings[key] = saved[key]
+    except (FileNotFoundError, json.JSONDecodeError, TypeError):
+        pass
+    if settings.get("difficulty") not in PRESETS:
+        settings["difficulty"] = "normal"
+    # Counters must always be whole numbers that are never negative, even if the file was edited by hand.
+    for key in ("subject_count", "loops"):
+        try:
+            settings[key] = max(0, int(settings.get(key, 0)))
+        except (TypeError, ValueError):
+            settings[key] = 0
+    if settings.get("ending") not in ("", "stay", "let_go"):
+        settings["ending"] = ""
+    secrets = settings.get("secrets")
+    settings["secrets"] = [s for s in secrets if isinstance(s, int)] if isinstance(secrets, list) else []
+    settings["twist_done"] = bool(settings.get("twist_done", False))
 
 
-def write_settings(settings):
-    filepath = settings_filepath()
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, "w") as f:
-        json.dump(settings, f)
+def save_settings():
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(os.path.join(DATA_DIR, "settings.json"), "w") as f:
+        json.dump(settings, f, indent=2)
 
 
-# =====================================================================
-# MONSTER - one class, two behaviors ("patroller" and "chaser")
-# =====================================================================
-class Monster:
-    def __init__(self, kind, x, y, size=34, color=(150, 30, 30), **settings):
-        self.kind = kind
-        self.x = float(x)
-        self.y = float(y)
-        self.size = size
-        self.color = tuple(color)  # JSON gives us a list; pygame wants a tuple
-        self.settings = settings
-
-        if kind == "patroller":
-            self.direction = 1  # 1 = moving right, -1 = moving left
-            self.speed = settings.get("speed", 2)
-            self.left_bound = settings.get("range", (x - 60, x + 60))[0]
-            self.right_bound = settings.get("range", (x - 60, x + 60))[1]
-
-        elif kind == "chaser":
-            self.awake = False
-            self.speed = settings.get("speed", 2.2)
-            self.detect_radius = settings.get("detect_radius", 160)
-            self.sleep_again_radius = settings.get("sleep_radius", 260)
-
-    def update(self, player_rect):
-        if self.kind == "patroller":
-            self.x += self.speed * self.direction
-            if self.x <= self.left_bound:
-                self.x = self.left_bound
-                self.direction = 1
-            elif self.x >= self.right_bound:
-                self.x = self.right_bound
-                self.direction = -1
-
-        elif self.kind == "chaser":
-            player_center_x = player_rect.centerx
-            distance = abs(player_center_x - (self.x + self.size / 2))
-
-            if not self.awake and distance < self.detect_radius:
-                self.awake = True
-            elif self.awake and distance > self.sleep_again_radius:
-                self.awake = False
-
-            if self.awake:
-                if player_center_x < self.x:
-                    self.x -= self.speed
-                elif player_center_x > self.x:
-                    self.x += self.speed
-
-    def rect(self):
-        return pygame.Rect(self.x, self.y, self.size, self.size)
-
-    def draw(self, surface):
-        color = self.color
-        if self.kind == "chaser" and not self.awake:
-            # dim the color while asleep, so the player gets a visual hint
-            color = tuple(c // 2 for c in self.color)
-        pygame.draw.rect(surface, color, self.rect())
+def save_path(slot):
+    return os.path.join(SAVE_DIR, "save%d.json" % slot)
 
 
-# =====================================================================
-# ROOM DATA - loaded from data/rooms.json. To add a new room, edit
-# that file - you don't need to touch this Python file at all.
-# =====================================================================
-ROOMS = load_json_data("rooms.json")
+def read_save(slot):
+    """Returns a dict for the slot, or None if the slot is empty (or unreadable)."""
+    try:
+        with open(save_path(slot)) as f:
+            data = json.load(f)
+        return {
+            "room_index": max(0, int(data.get("room_index", 0))),
+            "lives": max(1, int(data.get("lives", max_lives()))),
+            "collected_scrolls": [c for c in data.get("collected_scrolls", []) if isinstance(c, str)],
+        }
+    except (FileNotFoundError, json.JSONDecodeError, ValueError, TypeError, AttributeError):
+        return None
 
 
-def build_monsters(room):
-    chapter = CHAPTERS[room["chapter"]]
-    difficulty = chapter["difficulty"]
-
-    monsters = []
-    for m in room["monsters"]:
-        kind = m["kind"]
-        x, y, size, color = m["x"], m["y"], m["size"], m["color"]
-        extra_settings = {k: v for k, v in m.items() if k not in ("kind", "x", "y", "size", "color")}
-
-        # Scale up speed (and, for chasers, how alert they are) based on
-        # which chapter this room belongs to - later chapters = harder.
-        if "speed" in extra_settings:
-            extra_settings["speed"] = extra_settings["speed"] * difficulty
-        if "detect_radius" in extra_settings:
-            extra_settings["detect_radius"] = extra_settings["detect_radius"] * difficulty
-
-        monsters.append(Monster(kind, x, y, size=size, color=color, **extra_settings))
-    return monsters
+def write_save(slot, room_index, lives, collected):
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    with open(save_path(slot), "w") as f:
+        json.dump({"room_index": room_index, "lives": lives, "collected_scrolls": collected}, f, indent=2)
 
 
-# =====================================================================
-# BACKGROUND THEMES - each room gets its own palette + decorations
-# =====================================================================
-def draw_background(surface, theme):
-    surface.fill(theme["sky"])
-
-    if theme["style"] == "moonlit":
-        pygame.draw.circle(surface, theme["accent"], (700, 80), 40)  # moon
-        for star_x, star_y in theme.get("stars", []):
-            pygame.draw.circle(surface, (255, 255, 255), (star_x, star_y), 2)
-
-    elif theme["style"] == "cobweb":
-        # simple cobweb triangles tucked in the corners
-        pygame.draw.polygon(surface, theme["accent"], [(0, 0), (90, 0), (0, 90)])
-        pygame.draw.polygon(surface, theme["accent"], [(WINDOW_WIDTH, 0), (WINDOW_WIDTH - 90, 0), (WINDOW_WIDTH, 90)])
-
-    elif theme["style"] == "torchlit":
-        for tx in theme.get("torch_x", []):
-            pygame.draw.circle(surface, theme["accent"], (tx, 60), 26)  # glow
-            pygame.draw.rect(surface, (70, 45, 30), (tx - 4, 60, 8, 40))  # torch post
-
-
-# =====================================================================
-# CHAPTERS - groups of ~10 rooms sharing one theme AND one difficulty
-# level, loaded from data/chapters.json. Add a new chapter there once
-# you want a new "wing" of the mansion; every room just points at a
-# chapter by its key.
-# =====================================================================
-CHAPTERS = load_json_data("chapters.json")
-
-
-def get_room_display_name(room_index):
-    """
-    Builds a room's display name automatically, e.g. "The West Wing -
-    Room 2", instead of requiring every room in rooms.json to have its
-    own hand-written "name". Counts how many earlier rooms share this
-    room's chapter, to figure out which number this room is WITHIN
-    its chapter (not its position in the whole 50-room list).
-    """
-    room = ROOMS[room_index]
-    chapter_name = CHAPTERS[room["chapter"]]["display_name"]
-
-    position_in_chapter = 1
-    for earlier_room in ROOMS[:room_index]:
-        if earlier_room["chapter"] == room["chapter"]:
-            position_in_chapter += 1
-
-    return f"{chapter_name} - Room {position_in_chapter}"
-
-
-# =====================================================================
-# CHARACTER SILHOUETTES - built from a few shapes instead of one square
-# =====================================================================
-def draw_player(surface, rect, color):
-    # body
-    pygame.draw.rect(surface, color, (rect.x, rect.y + 10, rect.width, rect.height - 10), border_radius=4)
-    # head
-    pygame.draw.circle(surface, color, (rect.centerx, rect.y + 8), 9)
-
-
-def draw_monster(surface, monster):
-    rect = monster.rect()
-    color = monster.color
-    if monster.kind == "chaser" and not monster.awake:
-        color = tuple(c // 2 for c in monster.color)
-
-    if monster.kind == "patroller":
-        # a hunched, wide silhouette with two "ear" triangles
-        pygame.draw.ellipse(surface, color, rect)
-        ear_size = rect.width // 4
-        pygame.draw.polygon(surface, color, [
-            (rect.x + 4, rect.y + 6), (rect.x + 4 + ear_size, rect.y - 8), (rect.x + 4 + ear_size * 2, rect.y + 6)
-        ])
+def slot_label(slot):
+    save = read_save(slot)
+    if save is None:
+        status = "(Empty)"
+    elif save["room_index"] >= len(ROOMS):
+        status = "(Completed)"
     else:
-        # a caped silhouette: triangle "cape" + round head
-        pygame.draw.polygon(surface, color, [
-            (rect.centerx, rect.y), (rect.x, rect.bottom), (rect.right, rect.bottom)
-        ])
-        pygame.draw.circle(surface, color, (rect.centerx, rect.y + 8), 8)
+        status = "(Room %d)" % (save["room_index"] + 1)
+    return "Slot %d  %s" % (slot, status)
 
 
-def draw_text_center(surface, text, font, color, y):
-    surf = font.render(text, True, color)
-    surface.blit(surf, (WINDOW_WIDTH // 2 - surf.get_width() // 2, y))
+# ==================================================================
+# 3. SMALL HELPER FUNCTIONS
+# ==================================================================
+def quit_game():
+    pygame.quit()
+    sys.exit()
 
 
-def draw_lives(surface, font, lives):
-    label = font.render("Lives:", True, COLOR_TEXT)
-    surface.blit(label, (10, 10))
-    for i in range(STARTING_LIVES):
-        cx = 90 + i * 30
-        cy = 22
-        color = COLOR_LIFE_FULL if i < lives else COLOR_LIFE_EMPTY
-        pygame.draw.circle(surface, color, (cx, cy), 10)
+def make_fonts():
+    FONTS["small"] = pygame.font.Font(None, 22)
+    FONTS["body"] = pygame.font.Font(None, 28)
+    FONTS["big"] = pygame.font.Font(None, 38)
+    FONTS["title"] = pygame.font.Font(None, 72)
+    FONTS["mono"] = pygame.font.SysFont("couriernew,courier,menlo,monospace", 22, bold=True)
+    FONTS["mono_small"] = pygame.font.SysFont("couriernew,courier,menlo,monospace", 17, bold=True)
 
 
-def run_menu(title, options, font, big_font, subtitle=None):
-    """
-    A generic, reusable menu: shows a title and a vertical list of
-    text options. UP/DOWN (or W/S) move the selection, SPACE or
-    ENTER confirms. Returns the option string that was chosen.
-
-    This one function powers BOTH the main menu and the pause menu -
-    same reusable-behavior idea as our two monster types earlier.
-    """
-    clock = pygame.time.Clock()
-    selected = 0
-
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                raise SystemExit
-            if event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_UP, pygame.K_w):
-                    selected = (selected - 1) % len(options)
-                elif event.key in (pygame.K_DOWN, pygame.K_s):
-                    selected = (selected + 1) % len(options)
-                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
-                    return options[selected]
-
-        screen.fill(COLOR_BG)
-        draw_text_center(screen, title, big_font, COLOR_TEXT, 100)
-        if subtitle:
-            draw_text_center(screen, subtitle, font, (150, 150, 165), 150)
-
-        start_y = 230
-        for i, option in enumerate(options):
-            is_selected = (i == selected)
-            color = COLOR_KEY if is_selected else COLOR_TEXT
-            label = ("> " if is_selected else "   ") + option
-            draw_text_center(screen, label, font, color, start_y + i * 40)
-
-        pygame.display.flip()
-        clock.tick(60)
+def mix(c1, c2, t):
+    """Blend two colors. t=0 gives c1, t=1 gives c2."""
+    return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
 
 
-def show_loading_screen(font, big_font):
-    """
-    A brief branding moment before the main menu. Our data loads
-    instantly, so this is purely a pacing/polish choice - lots of
-    real games do this even when there's nothing to actually wait for.
-    """
-    clock = pygame.time.Clock()
-    for _ in range(60):  # about 1 second at 60fps
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                raise SystemExit
-
-        screen.fill(COLOR_BG)
-        draw_text_center(screen, "HALLOWED GROUNDS", big_font, COLOR_TEXT, 220)
-        draw_text_center(screen, "Loading...", font, COLOR_KEY, 280)
-        pygame.display.flip()
-        clock.tick(60)
-
-
-def show_chapter_complete(chapter_key, font, big_font):
-    """
-    Milestone 6: shown once when the player finishes the LAST room
-    of a chapter, using that chapter's display_name from chapters.json.
-    """
-    chapter_name = CHAPTERS[chapter_key]["display_name"]
-    wait_for_space(
-        font, big_font,
-        [f"{chapter_name} complete."],
-        title="WING COMPLETE",
-    )
-
-
-def show_settings(settings, font, big_font):
-    """
-    Lets the player adjust volume (0-100, step 10) and toggle the
-    chapter-transition screen on/off. Loops showing a menu until the
-    player picks Back, saving to disk after every change so nothing
-    is lost even if they quit without going back first.
-    """
-    while True:
-        volume_label = f"Volume: {settings['volume']}"
-        transitions_label = "Chapter Transition Screens: " + ("On" if settings["show_chapter_transitions"] else "Off")
-
-        choice = run_menu(
-            "SETTINGS",
-            [volume_label + " (- / +)", transitions_label + " (toggle)", "Back"],
-            font, big_font,
-        )
-
-        if choice.startswith("Volume"):
-            # A single confirm press bumps volume up by 10, wrapping
-            # back to 0 past 100 - keeps this screen to one menu
-            # instead of needing separate +/- buttons.
-            settings["volume"] = (settings["volume"] + 10) % 110
-            pygame.mixer.music.set_volume(settings["volume"] / 100)
-            write_settings(settings)
-        elif choice.startswith("Chapter Transition"):
-            settings["show_chapter_transitions"] = not settings["show_chapter_transitions"]
-            write_settings(settings)
-        else:
-            return
-
-
-def show_main_menu(font, big_font):
-    choice = run_menu(
-        "HALLOWED GROUNDS",
-        ["Start Game", "Settings", "Quit"],
-        font, big_font,
-        subtitle="A pixel-art escape room platformer",
-    )
-    if choice == "Start Game":
-        return "start"
-    elif choice == "Settings":
-        return "settings"
-    else:
-        return "quit"
-
-
-def show_slot_picker(font, big_font):
-    """
-    Lets the player choose one of 3 save slots. Each slot's label
-    shows whether it's empty or which room it's currently at, so the
-    player can tell progress apart from a blank slot at a glance.
-    Returns (slot_number, save_data) where save_data is None for an
-    empty slot.
-    """
-    saves = [load_save(1), load_save(2), load_save(3)]
-
-    labels = []
-    for i, save_data in enumerate(saves):
-        slot_number = i + 1
-        if save_data is None:
-            labels.append(f"Save {slot_number} (Empty)")
-        elif save_data["room_index"] >= len(ROOMS):
-            labels.append(f"Save {slot_number} (Completed)")
-        else:
-            labels.append(f"Save {slot_number} (Room {save_data['room_index'] + 1})")
-
-    choice = run_menu("SELECT SAVE SLOT", labels, font, big_font)
-    chosen_index = labels.index(choice)
-    slot_number = chosen_index + 1
-    return slot_number, saves[chosen_index]
-
-
-def wait_for_space(font, big_font, lines, title="ESCAPE ROOM"):
-    clock = pygame.time.Clock()
-    waiting = True
-    while waiting:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                raise SystemExit
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                waiting = False
-
-        screen.fill(COLOR_BG)
-        draw_text_center(screen, title, big_font, COLOR_TEXT, 80)
-        for i, line in enumerate(lines):
-            draw_text_center(screen, line, font, COLOR_TEXT, 200 + i * 35)
-        draw_text_center(screen, "Press SPACE to continue", font, COLOR_KEY, 420)
-
-        pygame.display.flip()
-        clock.tick(60)
+def draw_text(surface, text, font, color, x, y, center=False, shadow=(0, 0, 0)):
+    """Draws text (with a little shadow) and returns its rectangle."""
+    if shadow:
+        shade = font.render(text, True, shadow)
+        r = shade.get_rect(center=(x, y)) if center else shade.get_rect(topleft=(x, y))
+        surface.blit(shade, r.move(2, 2))
+    img = font.render(text, True, color)
+    r = img.get_rect(center=(x, y)) if center else img.get_rect(topleft=(x, y))
+    surface.blit(img, r)
+    return r
 
 
 def wrap_text(text, font, max_width):
-    """
-    Breaks a long string into a list of lines that each fit within
-    max_width pixels, measuring actual text width with the given font.
-    """
-    words = text.split(" ")
-    lines = []
-    current_line = ""
-
-    for word in words:
-        test_line = current_line + word + " "
-        if font.size(test_line)[0] <= max_width:
-            current_line = test_line
+    """Splits text into lines that each fit inside max_width pixels."""
+    lines, current = [], ""
+    for word in text.split():
+        trial = (current + " " + word).strip()
+        if font.size(trial)[0] <= max_width:
+            current = trial
         else:
-            lines.append(current_line.strip())
-            current_line = word + " "
-
-    if current_line:
-        lines.append(current_line.strip())
-
+            if current:
+                lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
     return lines
 
 
-def show_scroll(font, big_font, text, title="A weathered scroll"):
-    """
-    Displays one piece of scroll text, word-wrapped and paginated if
-    too long for one screen. SPACE advances/closes.
-    """
-    clock = pygame.time.Clock()
-    lines = wrap_text(text, font, 640)
+def present(screen, tape_no):
+    """Puts the finished picture on screen, with the tape effect on top."""
+    analog.draw(screen, tape_no)
+    pygame.display.flip()
 
-    lines_per_page = 8
-    pages = [lines[i:i + lines_per_page] for i in range(0, len(lines), lines_per_page)]
-    if not pages:
-        pages = [[]]
 
-    page_index = 0
+def chapter_number(room):
+    """0 for the first tape, 1 for the second, ..."""
+    return CHAPTER_ORDER.index(room["chapter"])
+
+
+def chapter_info(room):
+    return CHAPTERS[room["chapter"]]
+
+
+def is_first_in_chapter(index):
+    return index == 0 or ROOMS[index - 1]["chapter"] != ROOMS[index]["chapter"]
+
+
+def is_last_in_chapter(index):
+    return index == len(ROOMS) - 1 or ROOMS[index + 1]["chapter"] != ROOMS[index]["chapter"]
+
+
+def chapter_position(index):
+    """(position of the room inside its tape, number of rooms in that tape). Used to change the background as a tape goes on."""
+    first = last = index
+    while first > 0 and ROOMS[first - 1]["chapter"] == ROOMS[index]["chapter"]:
+        first -= 1
+    while last < len(ROOMS) - 1 and ROOMS[last + 1]["chapter"] == ROOMS[index]["chapter"]:
+        last += 1
+    return index - first, last - first + 1
+
+
+def room_display_name(index):
+    """Rooms are just numbers now: ROOM 12."""
+    return "ROOM %d" % (index + 1)
+
+
+def split_chapter_title(chap_no):
+    """'TAPE 02: The Old Hallways' -> ('TAPE 02', 'The Old Hallways')."""
+    display = CHAPTERS[CHAPTER_ORDER[chap_no]]["display_name"]
+    label, colon, name = display.partition(":")
+    if not colon:
+        return "TAPE %02d" % (chap_no + 1), display
+    return label.strip(), name.strip()
+
+
+def split_tape(text):
+    """'TAPE 01 [00:12] Stay on the path.' -> ('TAPE 01 [00:12]', 'Stay on the path.')
+    Notes work the same way: 'NOTE 07 [SCRATCHED] Don't look.' -> ('NOTE 07 [SCRATCHED]', "Don't look.")"""
+    if (text.startswith("TAPE") or text.startswith("NOTE")) and "]" in text:
+        cut = text.index("]") + 1
+        return text[:cut], text[cut:].strip()
+    return "", text
+
+
+def tape_label(text):
+    header, body = split_tape(text)
+    return header if header else body[:32]
+
+
+def build_monsters(room, difficulty, index=None, strip=False):
+    """Makes the Monster objects for a room. Two things make monsters tougher:
+    the chapter's difficulty (later tapes are harder) and the player's difficulty setting.
+    strip=True builds none at all (safe rooms). From room 15 on, some rooms hide a COPY (Designation 05)."""
+    if strip:
+        return []
+    p = preset()
+    monsters = []
+    for cfg in room.get("monsters", []):
+        cfg = dict(cfg)
+        if "speed" in cfg:
+            cfg["speed"] = cfg["speed"] * difficulty * p["monster_speed"]
+        if "detect_radius" in cfg:
+            cfg["detect_radius"] = cfg["detect_radius"] * difficulty * p["detect"]
+            # A chaser must go back to sleep at a bigger distance than it wakes at, or it flickers awake/asleep.
+            cfg["sleep_radius"] = max(cfg.get("sleep_radius", 250), cfg["detect_radius"] + 15)
+        if cfg.get("kind") == "chaser" and "speed" in cfg:
+            cfg["speed"] = min(cfg["speed"], MOVE_SPEED * 0.7)   # a chaser can never be almost as fast as you, on any difficulty
+        if cfg.get("kind") == "doorstalker":
+            cfg.setdefault("doors", room.get("boss_doors", []))
+            cfg["speed"] = min(cfg.get("speed", 5.5), MOVE_SPEED * 1.4)   # a dash is telegraphed, so it may be quick
+            cfg["telegraph"] = max(25, int(cfg.get("telegraph", 55) * p["fire"]))   # easier setting = more warning (p["fire"] is bigger on Easy)
+        if cfg.get("kind") == "shooter":
+            cfg["fire_interval"] = max(30, int(cfg.get("fire_interval", 100) * p["fire"]))
+            cfg["projectile_speed"] = cfg.get("projectile_speed", 5) * p["projectile"]
+        if cfg.get("kind") == "warden":
+            cfg["phase1_speed"] = cfg.get("phase1_speed", 2.0) * p["monster_speed"]
+            cfg["phase2_fire"] = max(45, int(cfg.get("phase2_fire", 95) * p["fire"]))
+            cfg["phase2_speed"] = cfg.get("phase2_speed", 4.5) * p["projectile"]
+            cfg["phase3_speed"] = min(cfg.get("phase3_speed", 3.2) * p["monster_speed"], MOVE_SPEED * 0.7)
+        monsters.append(Monster(cfg))
+
+    # Designation 05, "the Missing One": a copy of a creature you already know, with ONE thing changed by about 30%.
+    if index is not None and index >= 14 and index % 3 == 0:
+        pool = [m for m in monsters if m.kind in DESIGNATIONS]
+        if pool:
+            rng = random.Random(index * 31 + 5)
+            m = rng.choice(pool)
+            factor = rng.choice((0.7, 1.3))
+            m.is_copy = True
+            if m.kind in ("patroller", "flyer"):
+                m.speed *= factor
+            elif m.kind == "chaser":
+                if rng.random() < 0.5:
+                    m.speed = min(m.speed * factor, MOVE_SPEED * 0.7)   # the fairness cap still applies
+                else:
+                    m.detect_radius *= factor
+                    m.sleep_radius = max(m.sleep_radius, m.detect_radius + 15)
+            elif m.kind == "shooter":
+                m.fire_interval = max(30, int(m.fire_interval * factor))
+                m.cooldown = m.fire_interval
+    return monsters
+
+
+# ---------- Traps ----------
+def room_platforms(room):
+    """The room's solid platforms. Any "pits" cut holes out of the floor: "pits": [[x, width], ...]."""
+    plats = [list(p) for p in room["platforms"]]
+    pits = sorted(room.get("pits", []))
+    if not pits:
+        return plats
+    out = []
+    for p in plats:
+        if p[0] == 0 and p[1] == 460 and p[2] == 800:          # the full floor
+            x = 0
+            for px, pw in pits:
+                if px > x:
+                    out.append([x, 460, px - x, p[3]])
+                x = px + pw
+            if x < 800:
+                out.append([x, 460, 800 - x, p[3]])
+        else:
+            out.append(p)
+    return out
+
+
+def trap_active(trap, frame):
+    """Spikes are always dangerous. Pulsing spikes are dangerous for 'on' frames out of every 'period'."""
+    if trap.get("kind") == "pulse":
+        return (frame + trap.get("offset", 0)) % trap["period"] < trap["on"]
+    return True
+
+
+def trap_warning(trap, frame):
+    """True in the last moments before a pulsing trap pops up, so the player gets a fair warning."""
+    if trap.get("kind") != "pulse":
+        return False
+    return (frame + trap.get("offset", 0)) % trap["period"] >= trap["period"] - 25
+
+
+# ---------- Where the extras go ----------
+# Lockers, notes, batteries and secret walls are NOT placed by hand. The computer looks for a spot on the
+# floor that is far from pits, spikes, patrol paths, platforms, the door, the key and where you start.
+def floor_avoid_rects(room, include_monsters=True):
+    """Rectangles on the floor that no extra is allowed to touch."""
+    avoid = []
+
+    def span(lo, hi):
+        avoid.append(pygame.Rect(int(lo), 0, int(hi - lo), HEIGHT))
+
+    for px, pw in room.get("pits", []):
+        span(px - 30, px + pw + 30)
+    for t in room.get("traps", []):
+        span(t["x"] - 50, t["x"] + t["w"] + 50)
+    for m in room.get("monsters", []) if include_monsters else []:
+        size = m.get("size", 34)
+        if m.get("y", 0) + size < 420:
+            continue                                    # flyers and monsters on platforms never reach the floor spots
+        kind = m.get("kind")
+        if kind == "patroller":
+            lo, hi = m.get("range", [0, WIDTH])
+            span(lo - 40, hi + size + 40)
+        elif kind in ("shooter", "chaser"):
+            span(m["x"] - 100, m["x"] + size + 100)
+    for p in room["platforms"]:
+        if p[1] < 455:
+            avoid.append(pygame.Rect(*p).inflate(12, 12))
+    for c in room.get("crumbles", []):
+        avoid.append(pygame.Rect(*c).inflate(12, 12))
+    avoid.append(pygame.Rect(*room["door"]).inflate(60, 60))
+    avoid.append(pygame.Rect(room["key"][0], room["key"][1], KEY_SIZE, KEY_SIZE).inflate(40, 40))
+    sx, sy = room["player_start"]
+    avoid.append(pygame.Rect(sx, sy, PLAYER_W, PLAYER_H).inflate(80, 80))
+    if "scroll_pos" in room:
+        avoid.append(pygame.Rect(room["scroll_pos"][0], room["scroll_pos"][1], TAPE_W, TAPE_H).inflate(40, 40))
+    if room.get("charge_item"):
+        avoid.append(pygame.Rect(room["charge_item"][0], room["charge_item"][1], 26, 26).inflate(40, 40))
+    for bx, by in room.get("boss_doors", []):
+        avoid.append(pygame.Rect(bx, by, 46, 90).inflate(20, 20))
+    return avoid
+
+
+def floor_blocked(room, rect, taken):
+    return any(rect.colliderect(a) for a in floor_avoid_rects(room) + list(taken))
+
+
+def place_on_floor(room, w, h, taken, rng):
+    """Finds a w-by-h spot standing on the floor that is safe, or None. 'taken' holds spots already used."""
+    avoid = floor_avoid_rects(room) + list(taken)
+    xs = list(range(60, WIDTH - 60 - w, 10))
+    rng.shuffle(xs)                                     # the same room always shuffles the same way (seeded rng)
+    for x in xs:
+        r = pygame.Rect(x, 460 - h, w, h)
+        if not any(r.colliderect(a) for a in avoid):
+            return r
+    return None
+
+
+def place_risky_extra(room, room_no, kind, w, h, taken):
+    """Use a hand-picked, monster-exposed floor spot when a room has no safe spot."""
+    x = EXTRAS.get("risky_placements", {}).get(str(room_no), {}).get(kind)
+    if x is None:
+        return None
+    rect = pygame.Rect(int(x), 460 - h, w, h)
+    blockers = floor_avoid_rects(room, include_monsters=False) + list(taken)
+    if any(rect.colliderect(blocker) for blocker in blockers):
+        return None
+    return rect
+
+
+def plan_extras(room, index):
+    """Decides everything extra about one room, without playing it:
+    safe room? dark room? where is the locker, the note, the battery, the secret wall, the marks?"""
+    room_no = index + 1
+    rng = random.Random(index * 7919 + 101)
+    safe = room_no in EXTRAS.get("safe_rooms", [])
+    view = dict(room, monsters=[], traps=[]) if safe else room    # a safe room has no creatures or spikes to avoid
+    plan = {"room_no": room_no, "safe": safe, "dark": room_no in EXTRAS.get("dark_rooms", []) and not safe,
+            "hide": None, "note": None, "battery": None, "secret": None,
+            "hush": room_no in EXTRAS.get("hush_rooms", []) and not safe,
+            "label": EXTRAS.get("lie_labels", {}).get(str(room_no), room_display_name(index)),
+            "marks": [], "skipped": [], "risky": []}
+    taken = []
+    boss = bool(room.get("boss_intro"))
+
+    entry = EXTRAS.get("secrets", {}).get(str(room_no))
+    if entry and not safe and not boss:
+        panel = place_on_floor(view, 30, 60, taken, rng)
+        risky = False
+        if panel is None:
+            panel = place_risky_extra(view, room_no, "secret", 30, 60, taken)
+            risky = panel is not None
+        if panel is None:
+            plan["skipped"].append("secret wall (no safe floor)")
+        else:
+            side = "left" if panel.centerx < WIDTH // 2 else "right"     # which way the panel slides when it opens
+            plan["secret"] = {"panel": panel, "side": side, "text": entry["text"],
+                              "note_rect": pygame.Rect(panel.centerx - 10, 444, 20, 16), "risky": risky,
+                              "reward": entry.get("reward", "life"), "unlisted": bool(entry.get("unlisted"))}
+            if risky:
+                plan["risky"].append("secret wall")
+            taken.append(panel.inflate(30, 0))
+
+    if room_no in EXTRAS.get("hide_rooms", []) and not safe and not boss:
+        spot = place_on_floor(view, 30, 56, taken, rng)
+        risky = False
+        if spot is None:
+            spot = place_risky_extra(view, room_no, "locker", 30, 56, taken)
+            risky = spot is not None
+        if spot is None:
+            plan["skipped"].append("locker (no safe floor)")
+        else:
+            plan["hide"] = spot
+            if risky:
+                plan["risky"].append("locker")
+            taken.append(spot.inflate(30, 0))
+
+    text = EXTRAS.get("notes", {}).get(str(room_no))
+    if text is None and room_no == 1 and settings.get("loops", 0) > 0:
+        text = LOOP_NOTE
+    if text and not boss:
+        spot = place_on_floor(view, 20, 16, taken, rng)
+        if spot is None:
+            plan["skipped"].append("note (no safe floor)")
+        else:
+            plan["note"] = {"rect": spot, "text": text}
+            taken.append(spot.inflate(30, 0))
+
+    if plan["dark"]:
+        spot = place_on_floor(view, 18, 22, taken, rng)
+        risky = False
+        if spot is None:
+            spot = place_risky_extra(view, room_no, "battery", 18, 22, taken)
+            risky = spot is not None
+        if spot is None:
+            plan["skipped"].append("battery (no safe floor)")
+        else:
+            plan["battery"] = spot
+            if risky:
+                plan["risky"].append("battery")
+            taken.append(spot.inflate(30, 0))
+
+    # Marks left by earlier Subjects (decoration only, they never touch the player)
+    marks = plan["marks"]
+    if view.get("monsters") and not boss:
+        marks.append({"kind": "scratch", "x": rng.randint(60, 740), "y": rng.randint(130, 330), "count": 4})
+    for m in view.get("monsters", []):
+        if m.get("kind") == "chaser":
+            sx = m["x"] - 70 if m["x"] > 120 else m["x"] + 90
+            marks.append({"kind": "shoe", "x": int(sx), "y": 458})
+    if plan["secret"]:                                   # a chalk arrow on the wall, 90 pixels away, pointing at the panel
+        px = plan["secret"]["panel"].centerx
+        toward = 1 if px > WIDTH // 2 else -1
+        marks.append({"kind": "arrow", "x": px - toward * 90, "y": 380, "dir": toward})
+    if index % 7 == 3 and not safe and not boss:
+        marks.append({"kind": "trail", "x": rng.randint(200, 500), "y": 458, "n": 6})
+    return plan
+
+
+def check_extras():
+    """python3 manor.py --check : prints what got placed in every room (no game window needed)."""
+    load_game_data()
+    load_settings()
+    print("Rooms: %d.  Extras file found: %s" % (len(ROOMS), "yes" if EXTRAS else "NO (the game still plays)"))
+    for i, room in enumerate(ROOMS):
+        p = plan_extras(room, i)
+        bits = []
+        if p["safe"]:
+            bits.append("SAFE ROOM")
+        if p["dark"]:
+            bits.append("dark")
+        if p["hide"]:
+            bits.append("locker x=%d" % p["hide"].x)
+        if p["note"]:
+            bits.append("note x=%d" % p["note"]["rect"].x)
+        if p["battery"]:
+            bits.append("battery x=%d" % p["battery"].x)
+        if p["secret"]:
+            bits.append("secret wall on the %s%s" % (p["secret"]["side"], " (UNLISTED inside)" if p["secret"]["unlisted"] else ""))
+        if p["hush"]:
+            bits.append("THE HUSH")
+        if p["risky"]:
+            bits.append("RISKY placement: " + ", ".join(p["risky"]))
+        if p["label"] != room_display_name(i):
+            bits.append('sign lies: "%s"' % p["label"])
+        for s in p["skipped"]:
+            bits.append("SKIPPED " + s)
+        if bits:
+            print("Room %2d: %s" % (i + 1, ", ".join(bits)))
+
+
+# ==================================================================
+# 4. THE MONSTER CLASS
+# ==================================================================
+class Monster:
+    """
+    patroller  walks back and forth on a fixed path        (greed)
+    flyer      patrols sideways while bobbing up and down  (despair)
+    chaser     sleeps until you are close, then chases     (rage)
+    shooter    stands still, fires when you are level      (envy)
+    plus the five bosses: doorstalker, beamer, summoner, guardian, warden.
+    """
+
+    def __init__(self, cfg):
+        self.kind = cfg["kind"]
+        self.x = float(cfg["x"])
+        self.y = float(cfg["y"])
+        self.base_y = self.y
+        self.size = int(cfg.get("size", 34))
+        self.color = tuple(cfg.get("color", (150, 50, 50)))
+        self.speed = cfg.get("speed", 0)
+        walk_range = cfg.get("range", [0, WIDTH])
+        self.range_lo, self.range_hi = walk_range[0], walk_range[1]
+        self.direction = 1
+        self.is_copy = False            # True for a Designation 05 copy (it has one thing slightly wrong)
+        # flyer
+        self.bob_amplitude = cfg.get("bob_amplitude", 30)
+        self.bob_speed = cfg.get("bob_speed", 0.05)
+        self.phase = 0.0
+        self.wail_cooldown = 0
+        # chaser
+        self.detect_radius = cfg.get("detect_radius", 150)
+        self.sleep_radius = cfg.get("sleep_radius", 250)
+        self.awake = False
+        self.face = 1                   # which way a chaser is looking
+        self.last_seen_x = self.x       # where a chaser last saw you (it walks there if you hide)
+        self.lose_timer = 0
+        # shooter
+        self.fire_interval = cfg.get("fire_interval", 100)
+        self.align_tolerance = cfg.get("align_tolerance", 40)
+        self.projectile_speed = cfg.get("projectile_speed", 5)
+        self.cooldown = self.fire_interval
+        self.aligned = False
+        # doorstalker (boss): lives inside door-frames, telegraphs, then dashes through one of them
+        self.doors = cfg.get("doors", [])
+        self.telegraph_time = cfg.get("telegraph", 55)
+        self.manifest_time = cfg.get("manifest", 36)
+        self.cooldown_time = cfg.get("cooldown", 80)
+        self.dash_speed = cfg.get("speed", 5.5)
+        if self.kind == "doorstalker":
+            self.w, self.h = 30, 62
+            self.state = "hidden"
+            self.timer = self.cooldown_time
+            self.active_door = None
+            self.dash_dir = 1
+            self.x, self.y = -400.0, -400.0    # parked off-screen until it manifests
+
+        # beamer (boss): stands still, periodically telegraphs then sweeps a wide beam at its own height
+        self.beam_telegraph = cfg.get("beam_telegraph", 60)
+        self.beam_time = cfg.get("beam_time", 40)
+        self.beam_cooldown = cfg.get("beam_cooldown", 70)
+        # summoner (boss): stands still, periodically calls in a short-lived minion
+        self.summon_interval = cfg.get("summon_interval", 130)
+        self.minion_life = cfg.get("minion_life", 200)
+        self.minion_speed = cfg.get("minion_speed", 2.0)
+        # guardian (boss): slow patrol, defeated by landing on top of it; hurts if touched from the side
+        self.defeated = False
+        if self.kind in ("beamer", "summoner", "guardian"):
+            self.w = self.h = self.size
+            self.state = "idle"
+            self.timer = cfg.get("beam_telegraph", 60) if self.kind == "beamer" else self.summon_interval
+            self.beam_active = False
+
+        # warden (final boss): one monster, three timed phases -- no combat, only avoidance, just like
+        # every other room. Phase 1 paces. Phase 2 rises and fires. Phase 3 chases while the room collapses.
+        if self.kind == "warden":
+            self.w = self.h = self.size
+            self.phase = 1
+            self.phase_timer = cfg.get("phase1_time", 420)
+            self.phase1_speed = cfg.get("phase1_speed", 2.0)
+            self.phase2_y = cfg.get("phase2_y", self.y - 140)
+            self.phase2_fire = cfg.get("phase2_fire", 95)
+            self.phase2_speed = cfg.get("phase2_speed", 4.5)
+            self.phase3_speed = min(cfg.get("phase3_speed", 3.2), MOVE_SPEED * 0.7)
+            self.cooldown = self.phase2_fire
+            self.aligned = False
+            self.align_tolerance = cfg.get("align_tolerance", 44)
+            self.just_entered_phase = 1    # play_room watches this to trigger one-time phase effects
+
+    @property
+    def rect(self):
+        if self.defeated:
+            return pygame.Rect(-2000, -2000, 1, 1)
+        if self.kind == "doorstalker":
+            return pygame.Rect(int(self.x), int(self.y), self.w, self.h)
+        return pygame.Rect(int(self.x), int(self.y), self.size, self.size)
+
+    @property
+    def beam_rect(self):
+        """The wide, dangerous hazard a beamer boss sweeps out. None unless it is actively firing."""
+        if self.kind == "beamer" and self.state == "beam" and not self.defeated:
+            return pygame.Rect(0, int(self.y) + self.size // 2 - 8, WIDTH, 16)
+        return None
+
+    def _distance_to(self, player):
+        return math.hypot(player.centerx - self.rect.centerx, player.centery - self.rect.centery)
+
+    def _patrol(self):
+        """Walk left and right between range_lo and range_hi."""
+        self.x += self.speed * self.direction
+        if self.x <= self.range_lo:
+            self.x = self.range_lo
+            self.direction = 1
+        elif self.x >= self.range_hi:
+            self.x = self.range_hi
+            self.direction = -1
+
+    def _step_toward(self, target_x):
+        """Walk one step toward target_x (used by chasers)."""
+        dx = target_x - self.rect.centerx
+        self.face = 1 if dx > 0 else -1
+        if abs(dx) > self.speed:
+            self.x += self.speed if dx > 0 else -self.speed
+        self.x = max(0, min(WIDTH - self.size, self.x))
+
+    def update(self, player, projectiles, hidden=False, noise=None):
+        """Moves the monster one frame. Returns a list of sound names to play.
+        hidden = the player is inside a locker.  noise = the sounds the player has been making."""
+        sounds = []
+        if self.kind == "patroller":
+            self._patrol()
+
+        elif self.kind == "flyer":
+            self._patrol()
+            self.phase += self.bob_speed
+            self.y = self.base_y + math.sin(self.phase) * self.bob_amplitude
+            self.wail_cooldown = max(0, self.wail_cooldown - 1)
+            if self.wail_cooldown == 0 and self._distance_to(player) < 260:
+                sounds.append("banshee")
+                self.wail_cooldown = 600
+
+        elif self.kind == "chaser":
+            distance = self._distance_to(player)
+            if hidden:
+                # It lost you. An awake chaser walks to where it last saw you, waits a moment, then goes back to sleep.
+                if self.awake:
+                    if abs(self.last_seen_x - self.rect.centerx) > self.speed:
+                        self._step_toward(self.last_seen_x)
+                    else:
+                        self.lose_timer += 1
+                        if self.lose_timer >= 100:
+                            self.awake = False
+                            self.lose_timer = 0
+            else:
+                self.last_seen_x = player.centerx
+                self.lose_timer = 0
+                # Running is loud: a sleeping chaser notices a running player from further away.
+                loud = bool(noise) and any(n["radius"] >= NOISE_RUN for n in noise)
+                wake_at = self.detect_radius * (1.35 if loud else 1.0)
+                if not self.awake and distance < wake_at:
+                    self.awake = True
+                    sounds.append("wake")
+                elif self.awake and distance > max(self.sleep_radius, wake_at + 15):
+                    self.awake = False          # you got far enough away, it goes back to sleep
+                if self.awake:
+                    self._step_toward(player.centerx)
+
+        elif self.kind == "shooter":
+            self.aligned = (not hidden) and abs(player.centery - self.rect.centery) < self.align_tolerance
+            if self.cooldown > 0:
+                self.cooldown -= 1
+            if self.aligned and self.cooldown == 0:
+                direction = 1 if player.centerx > self.rect.centerx else -1
+                projectiles.append({"x": self.rect.centerx, "y": self.rect.centery - 5,
+                                    "vx": direction * self.projectile_speed, "size": 10})
+                self.cooldown = self.fire_interval
+                sounds.append("shoot")
+
+        elif self.kind == "doorstalker":
+            self.timer -= 1
+            if self.state == "hidden":
+                if self.timer <= 0 and self.doors:
+                    choices = [i for i in range(len(self.doors)) if i != self.active_door] or list(range(len(self.doors)))
+                    self.active_door = random.choice(choices)
+                    self.state, self.timer = "telegraph", self.telegraph_time
+                    sounds.append("telegraph")
+            elif self.state == "telegraph":
+                if self.timer <= 0:
+                    dx0, dy0 = self.doors[self.active_door]
+                    self.x, self.y = float(dx0), float(dy0)
+                    self.dash_dir = 1 if player.centerx >= self.rect.centerx else -1
+                    self.state, self.timer = "manifest", self.manifest_time
+                    sounds.append("manifest")
+            elif self.state == "manifest":
+                self.x += self.dash_speed * self.dash_dir
+                if self.timer <= 0 or self.x < -80 or self.x > WIDTH + 80:
+                    self.state, self.timer = "hidden", self.cooldown_time
+                    self.x, self.y = -400.0, -400.0
+
+        elif self.kind == "beamer" and not self.defeated:
+            self.timer -= 1
+            if self.state == "idle":
+                if self.timer <= 0:
+                    self.state, self.timer = "telegraph", self.beam_telegraph
+                    sounds.append("telegraph")
+            elif self.state == "telegraph":
+                if self.timer <= 0:
+                    self.state, self.timer = "beam", self.beam_time
+                    sounds.append("manifest")
+            elif self.state == "beam":
+                if self.timer <= 0:
+                    self.state, self.timer = "idle", self.beam_cooldown
+
+        elif self.kind == "summoner" and not self.defeated:
+            self.timer -= 1
+            if self.timer <= 0:
+                self.timer = self.summon_interval
+                sounds.append("summon")            # play_room adds a short-lived minion when it sees this
+
+        elif self.kind == "guardian" and not self.defeated:
+            self._patrol()
+
+        elif self.kind == "warden":
+            self.just_entered_phase = 0
+            self.phase_timer -= 1
+            if self.phase == 1:
+                self.speed = self.phase1_speed
+                self._patrol()
+                if self.phase_timer <= 0:
+                    self.phase = 2
+                    self.phase_timer = 10 ** 9     # phase 2 ends when it's fired a few times, not on a clock
+                    self.phase2_shots = 0
+                    self.y = self.phase2_y
+                    self.just_entered_phase = 2
+                    sounds.append("telegraph")
+            elif self.phase == 2:
+                self.aligned = abs(player.centery - self.rect.centery) < self.align_tolerance
+                if self.cooldown > 0:
+                    self.cooldown -= 1
+                if self.aligned and self.cooldown == 0:
+                    direction = 1 if player.centerx > self.rect.centerx else -1
+                    projectiles.append({"x": self.rect.centerx, "y": self.rect.centery - 6,
+                                        "vx": direction * self.phase2_speed, "size": 14})
+                    self.cooldown = self.phase2_fire
+                    self.phase2_shots += 1
+                    sounds.append("shoot")
+                    if self.phase2_shots >= 5:
+                        self.phase = 3
+                        self.just_entered_phase = 3
+                        sounds.append("manifest")
+            elif self.phase == 3:
+                dx = player.centerx - self.rect.centerx
+                self.face = 1 if dx > 0 else -1
+                if abs(dx) > self.phase3_speed:
+                    self.x += self.phase3_speed if dx > 0 else -self.phase3_speed
+                self.x = max(0, min(WIDTH - self.size, self.x))
+        return sounds
+
+    def draw(self, surface, frame, player):
+        visuals.draw_monster(surface, self, frame, player)
+
+
+# ==================================================================
+# 5. DRAWING FUNCTIONS
+# ==================================================================
+# Everything here is drawn with plain pygame.draw calls straight onto the picture
+# (no separate little pictures pasted in), the same rule visuals.py follows.
+def draw_spikes(surface, rect, active, warning, frame):
+    """A row of spikes. Pulsing spikes lie flat, shake as a warning, then pop up."""
+    x0, y0, w, h = rect
+    step = 12
+    if active:
+        height, color = h, (205, 205, 215)
+    elif warning:
+        height, color = max(5, h // 2), (170, 110, 110)
+    else:
+        height, color = 4, (95, 90, 105)
+    for x in range(x0, x0 + w, step):
+        jitter = random.randint(-1, 1) if warning and not active else 0
+        pts = [(x + jitter, y0 + h), (x + step + jitter, y0 + h), (x + step // 2 + jitter, y0 + h - height)]
+        pygame.draw.polygon(surface, color, pts)
+        if active:
+            pygame.draw.circle(surface, (230, 70, 70), (x + step // 2, y0 + h - height + 2), 2)
+
+
+def draw_pit(surface, px, pw):
+    """A hole in the floor, with spikes far below so it looks as dangerous as it is."""
+    pygame.draw.rect(surface, (4, 3, 6), (px, 460, pw, 40))
+    for x in range(px, px + pw, 14):
+        pygame.draw.polygon(surface, (70, 30, 40), [(x, 500), (x + 14, 500), (x + 7, 484)])
+    pygame.draw.line(surface, (110, 30, 45), (px, 460), (px, 500), 2)
+    pygame.draw.line(surface, (110, 30, 45), (px + pw, 460), (px + pw, 500), 2)
+
+
+def draw_crumble(surface, c, chapter, frame):
+    """A platform that falls apart soon after you stand on it, then grows back."""
+    r = c["rect"]
+    if c["state"] == "gone":
+        pygame.draw.rect(surface, (70, 60, 70), r, 1)                # a faint outline shows where it will return
+        return
+    shake = random.randint(-2, 2) if c["state"] == "shaking" else 0
+    shown = r.move(shake, 0)
+    accent = tuple(chapter.get("accent", (120, 120, 120)))
+    pygame.draw.rect(surface, mix((70, 55, 50), accent, 0.2), shown)
+    pygame.draw.rect(surface, (30, 22, 22), shown, 1)
+    for i in range(1, 5):                                            # cracks
+        cx = shown.x + i * shown.w // 5
+        pygame.draw.line(surface, (30, 22, 22), (cx, shown.y), (cx - 4, shown.bottom - 1), 1)
+
+
+def draw_player(surface, rect, facing, invincible, frame, sprite):
+    """Draws the player. (It is its own small function so the tests can watch it.)"""
+    sprite.draw(surface, rect, facing, invincible, frame)
+
+
+def draw_heart(surface, x, y, size, color):
+    r = size // 4
+    pygame.draw.circle(surface, color, (x + r, y + r), r)
+    pygame.draw.circle(surface, color, (x + 3 * r, y + r), r)
+    pygame.draw.polygon(surface, color, [(x, y + r + 1), (x + 4 * r, y + r + 1), (x + 2 * r, y + 4 * r)])
+
+
+def draw_hud(screen, lives, has_key, tape_count, name, message, message_timer, has_charge=False,
+             stamina=STAMINA_MAX, tired=False, battery=None):
+    for i in range(max_lives()):
+        color = (210, 50, 60) if i < lives else (60, 40, 45)
+        draw_heart(screen, 14 + i * 28, 12, 20, color)
+    draw_text(screen, name, FONTS["mono_small"], (200, 195, 205), 14, 40)
+    draw_text(screen, "FILES: %d" % tape_count, FONTS["mono_small"], (200, 195, 205), 14, 60)
+    if has_key:
+        draw_text(screen, "KEY", FONTS["mono_small"], (235, 200, 70), 14, 80)
+    if has_charge:
+        draw_text(screen, "CHARGED: touch the presence", FONTS["mono_small"], (140, 200, 255), 14, 100)
+    if stamina < STAMINA_MAX:                         # the stamina bar only appears once you have used some
+        pygame.draw.rect(screen, (40, 36, 44), (14, 124, 80, 6))
+        bar_color = (200, 60, 60) if tired else (120, 200, 140)    # red = worn out, cannot run yet
+        pygame.draw.rect(screen, bar_color, (14, 124, int(80 * stamina / STAMINA_MAX), 6))
+    if battery is not None:                           # the flashlight battery (dark rooms only)
+        pygame.draw.rect(screen, (40, 36, 44), (14, 136, 80, 6))
+        low = battery < 20
+        pygame.draw.rect(screen, (230, 170, 60) if low else (230, 220, 140), (14, 136, int(80 * battery / BATTERY_MAX), 6))
+    if message and message_timer > 0:
+        color = mix((20, 20, 20), WHITE, min(1.0, message_timer / 30))
+        draw_text(screen, message, FONTS["body"], color, WIDTH // 2, 90, center=True)
+
+
+def draw_darkness(surface, cx, cy, r, dense=False):
+    """Darkness with a round hole of light around (cx, cy). Drawn as black stripes (no see-through layers).
+    Far away it is two stripes in three, at the soft edge one in three, and inside the light nothing.
+    dense=True is used while hiding in a locker: almost everything is black."""
+    cx, cy = int(cx), int(cy)
+    r_out = r * 1.5
+    for y in range(0, HEIGHT, 2):
+        band = (y // 2) % 3
+        dy = abs(y + 1 - cy)
+        out_h = int(math.sqrt(r_out * r_out - dy * dy)) if dy < r_out else 0
+        in_h = int(math.sqrt(r * r - dy * dy)) if dy < r else 0
+        if dense or band != 2:
+            if out_h == 0:
+                pygame.draw.rect(surface, BLACK, (0, y, WIDTH, 2))
+            else:
+                pygame.draw.rect(surface, BLACK, (0, y, max(0, cx - out_h), 2))
+                pygame.draw.rect(surface, BLACK, (cx + out_h, y, max(0, WIDTH - (cx + out_h)), 2))
+        if out_h > 0 and ((band != 2) if dense else (band == 0)):
+            pygame.draw.rect(surface, BLACK, (cx - out_h, y, out_h - in_h, 2))
+            pygame.draw.rect(surface, BLACK, (cx + in_h, y, out_h - in_h, 2))
+
+
+def draw_vignette(screen, amount):
+    """Black closes in from the screen edges as 'amount' goes from 0 to 1. This is the Hush's visual warning
+    for players who cannot hear the sound fading."""
+    t = int(max(0.0, min(1.0, amount)) * 120)
+    if t <= 0:
+        return
+    pygame.draw.rect(screen, BLACK, (0, 0, t, HEIGHT))
+    pygame.draw.rect(screen, BLACK, (WIDTH - t, 0, t, HEIGHT))
+    pygame.draw.rect(screen, BLACK, (0, 0, WIDTH, t // 2))
+    pygame.draw.rect(screen, BLACK, (0, HEIGHT - t // 2, WIDTH, t // 2))
+
+
+def draw_locker(surface, rect, frame, occupied):
+    """A tall metal locker. When you are inside, two eyes show through the slats."""
+    pygame.draw.rect(surface, (46, 48, 56), rect, border_radius=3)
+    pygame.draw.rect(surface, (20, 20, 26), rect, 2, border_radius=3)
+    for i in range(4):
+        y = rect.y + 10 + i * 5
+        pygame.draw.line(surface, (16, 16, 20), (rect.x + 6, y), (rect.right - 6, y), 1)
+    pygame.draw.circle(surface, (150, 140, 90), (rect.right - 7, rect.centery + 8), 2)
+    if occupied:
+        for dx in (-4, 4):
+            pygame.draw.rect(surface, (235, 235, 225), (rect.centerx + dx - 1, rect.y + 13, 3, 2))
+
+
+def draw_note(surface, rect, frame):
+    """A small piece of paper lying on the floor."""
+    lift = int(math.sin(frame * 0.07) * 1.5)
+    r = rect.move(0, lift)
+    pygame.draw.rect(surface, (205, 200, 172), r)
+    pygame.draw.rect(surface, (110, 100, 80), r, 1)
+    for i in range(3):
+        pygame.draw.line(surface, (110, 100, 80), (r.x + 3, r.y + 4 + i * 4), (r.right - 4, r.y + 4 + i * 4), 1)
+
+
+def draw_battery(surface, rect, frame):
+    """A flashlight battery: a little green cell that glows."""
+    pulse = 0.5 + 0.5 * math.sin(frame * 0.1)
+    cx, cy = rect.centerx, rect.centery
+    visuals.add_glow(surface, cx, cy, int(16 + 4 * pulse), (14, 44, 24))
+    pygame.draw.rect(surface, (50, 150, 80), rect, border_radius=3)
+    pygame.draw.rect(surface, (180, 240, 190), rect, 2, border_radius=3)
+    pygame.draw.rect(surface, (180, 240, 190), (cx - 3, rect.y - 3, 6, 3))
+    pygame.draw.rect(surface, (230, 255, 235), (cx - 2, cy - 5, 4, 10))
+
+
+def draw_unlisted_figure(surface, cx, by, frame):
+    """The thing in the secret room. It just stands there. It never moves toward you."""
+    body = (30, 28, 34)
+    pygame.draw.polygon(surface, body, [(cx - 6, by), (cx + 6, by), (cx + 4, by - 38), (cx - 4, by - 38)])
+    pygame.draw.line(surface, body, (cx - 5, by - 34), (cx - 8, by - 14), 3)
+    pygame.draw.line(surface, body, (cx + 5, by - 34), (cx + 8, by - 14), 3)
+    pygame.draw.ellipse(surface, (196, 192, 186), (cx - 5, by - 52, 10, 14))      # a blank face, nothing on it
+    if (frame // 7) % 23 == 0:
+        pygame.draw.line(surface, (210, 50, 50), (cx - 8, by - 30), (cx + 8, by - 30), 1)
+
+
+def draw_secret_panel(surface, secret, open_t, frame):
+    """A wall panel that is almost, but not quite, the same color as the wall. Walk into it and it slides away."""
+    p = secret["panel"]
+    pygame.draw.rect(surface, (6, 5, 8), p)                              # the little room behind it
+    w = int(p.w * (1 - open_t))
+    if w > 0:
+        x = p.x if secret["side"] == "left" else p.right - w
+        pygame.draw.rect(surface, (78, 64, 58), (x, p.y, w, p.h))
+        pygame.draw.line(surface, (40, 33, 32), (x, p.y + 16), (x + w, p.y + 24), 1)
+        pygame.draw.line(surface, (40, 33, 32), (x + w // 2, p.y), (x + w // 2 - 3, p.bottom), 1)
+        pygame.draw.rect(surface, (44, 36, 34), (x, p.y, w, p.h), 1)
+    if open_t >= 1.0 and secret["unlisted"]:
+        draw_unlisted_figure(surface, p.centerx, p.bottom - 2, frame)
+
+
+def draw_mark(surface, m, frame):
+    """Traces left by earlier Subjects: scratches, a dropped shoe, a chalk arrow, a trail that just stops."""
+    kind = m["kind"]
+    if kind == "scratch":
+        x, y = m["x"], m["y"]
+        for i in range(m.get("count", 4)):
+            pygame.draw.line(surface, (120, 100, 98), (x + i * 6, y), (x + i * 6, y + 22), 2)
+        pygame.draw.line(surface, (120, 100, 98), (x - 4, y + 18), (x + m.get("count", 4) * 6, y + 3), 2)
+    elif kind == "shoe":
+        x, y = m["x"], m["y"]
+        pygame.draw.ellipse(surface, (58, 48, 54), (x - 9, y - 7, 18, 8))
+        pygame.draw.line(surface, (24, 20, 24), (x - 9, y - 1), (x + 9, y - 1), 2)
+    elif kind == "arrow":
+        x, y, d = m["x"], m["y"], m["dir"]
+        chalk = (196, 196, 186)
+        pygame.draw.line(surface, chalk, (x - 18 * d, y), (x + 14 * d, y), 3)
+        pygame.draw.polygon(surface, chalk, [(x + 20 * d, y), (x + 10 * d, y - 7), (x + 10 * d, y + 7)])
+    elif kind == "trail":
+        for i in range(m["n"]):
+            pygame.draw.circle(surface, (74, 36, 40), (m["x"] + i * 14, m["y"] - (i % 2)), 3 - (i // 3))
+
+
+def draw_monitor_line(surface, bx, y0, color):
+    """A heart-monitor line. A blip sits at x = bx (None = a flat line)."""
+    pts = []
+    for x in range(0, WIDTH, 4):
+        d = (x - bx) if bx is not None else 999
+        y = y0
+        if -30 < d < -20:
+            y -= 4
+        elif -20 <= d < -14:
+            y -= 26
+        elif -14 <= d < -8:
+            y += 12
+        elif -8 <= d < -2:
+            y -= 4
+        pts.append((x, y))
+    pygame.draw.lines(surface, color, False, pts, 3)
+
+
+# ==================================================================
+# 6. MENUS AND SCREENS
+# ==================================================================
+def draw_menu_frame(screen, title, options, selected, subtitle, backdrop, frame):
+    """Draws any vertical menu. Long lists scroll so they never run off the screen."""
+    if backdrop is not None:
+        screen.blit(backdrop, (0, 0))
+        dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        dim.fill((0, 0, 0, 175))
+        screen.blit(dim, (0, 0))
+    else:
+        visuals.menu_background(screen, frame)
+
+    jitter = random.randint(-6, 6) if frame % 120 < 4 else 0      # rare title glitch
+    draw_text(screen, title, FONTS["title"], (120, 20, 20), WIDTH // 2 + jitter + 3, 103, center=True, shadow=None)
+    draw_text(screen, title, FONTS["title"], WHITE, WIDTH // 2, 100, center=True)
+
+    y = 152
+    for line in wrap_text(subtitle, FONTS["mono_small"], 660)[:3]:
+        draw_text(screen, line, FONTS["mono_small"], (170, 150, 150), WIDTH // 2, y, center=True)
+        y += 22
+
+    visible = 6
+    first = max(0, min(selected - 3, len(options) - visible))
+    y = 245
+    for i in range(first, min(len(options), first + visible)):
+        if i == selected:
+            pulse = 0.5 + 0.5 * math.sin(frame * 0.1)
+            draw_text(screen, "> %s <" % options[i], FONTS["big"], mix(RED, (255, 150, 150), pulse),
+                      WIDTH // 2, y, center=True)
+        else:
+            draw_text(screen, options[i], FONTS["big"], GREY, WIDTH // 2, y, center=True)
+        y += 40
+    draw_text(screen, "UP / DOWN + ENTER      ESC = back", FONTS["mono_small"], (95, 90, 100),
+              WIDTH // 2, HEIGHT - 26, center=True)
+
+
+def run_menu(screen, clock, title, options, subtitle="", tape_no=1, start_index=0, backdrop=None):
+    """Shows a menu and waits. Returns the chosen index, or None if Esc was pressed."""
+    selected = start_index
+    frame = 0
     while True:
+        frame += 1
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                raise SystemExit
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                page_index += 1
-                if page_index >= len(pages):
+                quit_game()
+            elif event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_UP, pygame.K_w):
+                    selected = (selected - 1) % len(options)
+                    sound.play("click")
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    selected = (selected + 1) % len(options)
+                    sound.play("click")
+                elif event.key in CONFIRM_KEYS:
+                    sound.play("click")
+                    return selected
+                elif event.key == pygame.K_ESCAPE:
+                    return None
+        draw_menu_frame(screen, title, options, selected, subtitle, backdrop, frame)
+        present(screen, tape_no)
+        clock.tick(FPS)
+
+
+def wait_for_key(screen, clock, draw_fn, tape_no=1, min_frames=20):
+    """Calls draw_fn(frame) every frame until the player presses Enter/Space/Esc."""
+    frame = 0
+    while True:
+        frame += 1
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quit_game()
+            elif event.type == pygame.KEYDOWN and frame > min_frames:
+                if event.key in CONFIRM_KEYS or event.key == pygame.K_ESCAPE:
                     return
-
-        screen.fill(COLOR_BG)
-        draw_text_center(screen, title, big_font, COLOR_KEY, 60)
-
-        for i, line in enumerate(pages[page_index]):
-            draw_text_center(screen, line, font, COLOR_TEXT, 140 + i * 30)
-
-        is_last_page = (page_index == len(pages) - 1)
-        footer = "Press SPACE to close" if is_last_page else "Press SPACE to continue"
-        draw_text_center(screen, footer, font, COLOR_KEY, WINDOW_HEIGHT - 40)
-
-        pygame.display.flip()
-        clock.tick(60)
+        draw_fn(frame)
+        present(screen, tape_no)
+        clock.tick(FPS)
 
 
-def show_journal(collected_scrolls, font, big_font):
-    """
-    Lets the player re-read every scroll they've collected so far.
-    """
-    if not collected_scrolls:
-        clock = pygame.time.Clock()
-        waiting = True
-        while waiting:
+def draw_loading_frame(screen, label, progress):
+    pygame.event.pump()
+    screen.fill((8, 6, 10))
+    for _ in range(40):                                   # a little static
+        y = random.randint(0, HEIGHT)
+        g = random.randint(20, 60)
+        pygame.draw.line(screen, (g, g, g), (random.randint(0, WIDTH), y), (random.randint(0, WIDTH), y))
+    draw_text(screen, "HALLOWED GROUNDS", FONTS["big"], WHITE, WIDTH // 2, 190, center=True)
+    draw_text(screen, label, FONTS["mono_small"], GREY, WIDTH // 2, 300, center=True)
+    bar = pygame.Rect(200, 250, 400, 18)
+    pygame.draw.rect(screen, (60, 50, 60), bar, 2)
+    pygame.draw.rect(screen, RED, (bar.x + 3, bar.y + 3, int((bar.w - 6) * progress), bar.h - 6))
+    pygame.display.flip()
+
+
+def show_loading(screen, clock, tasks):
+    """tasks = [(label, function), ...]. Runs each one while showing a loading bar."""
+    total = len(tasks)
+    for i, (label, task) in enumerate(tasks):
+        draw_loading_frame(screen, label, i / total)
+        task()
+    draw_loading_frame(screen, "Tape ready.", 1.0)
+    pygame.time.wait(250)
+
+
+def show_controls(screen, clock):
+    lines = [
+        "MOVE     Arrow keys  or  A / D",
+        "RUN      Hold Shift (uses stamina, and it is LOUD)",
+        "JUMP     Space, Up, or W  (hold = higher)",
+        "HIDE     Down / S / E at a locker (again = leave)",
+        "PAUSE    Esc",
+        "READ     Walk into a cassette or a note",
+        "",
+        "GOAL     Find the KEY, then reach the DOOR.",
+        "",
+        "The Guide gives one rule per room.",
+        "Every rule is a hint. Listen carefully.",
+    ]
+
+    def draw(frame):
+        screen.fill((14, 10, 16))
+        draw_text(screen, "CONTROLS", FONTS["title"], WHITE, WIDTH // 2, 70, center=True)
+        for i, line in enumerate(lines):
+            draw_text(screen, line, FONTS["mono"], (200, 195, 205), 70, 125 + i * 28)
+        draw_text(screen, "Press ENTER", FONTS["mono_small"], (95, 90, 100), WIDTH // 2, HEIGHT - 26, center=True)
+
+    wait_for_key(screen, clock, draw)
+
+
+def show_settings(screen, clock, backdrop=None, tape_no=1):
+    """Volume, difficulty and the chapter-intro toggle. LEFT/RIGHT changes a value."""
+    selected = 0
+    frame = 0
+    while True:
+        frame += 1
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quit_game()
+            elif event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_UP, pygame.K_w):
+                    selected = (selected - 1) % 4
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    selected = (selected + 1) % 4
+                elif event.key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_a, pygame.K_d):
+                    direction = 1 if event.key in (pygame.K_RIGHT, pygame.K_d) else -1
+                    if selected == 0:
+                        settings["volume"] = max(0, min(100, settings["volume"] + 10 * direction))
+                        sound.set_volume(settings["volume"] / 100)
+                        sound.play("click")
+                    elif selected == 1:
+                        i = DIFFICULTIES.index(settings["difficulty"])
+                        settings["difficulty"] = DIFFICULTIES[(i + direction) % len(DIFFICULTIES)]
+                        sound.play("click")
+                    elif selected == 2:
+                        settings["chapter_intros"] = not settings["chapter_intros"]
+                elif event.key in CONFIRM_KEYS:
+                    if selected == 1:
+                        i = DIFFICULTIES.index(settings["difficulty"])
+                        settings["difficulty"] = DIFFICULTIES[(i + 1) % len(DIFFICULTIES)]
+                    elif selected == 2:
+                        settings["chapter_intros"] = not settings["chapter_intros"]
+                    elif selected == 3:
+                        save_settings()
+                        return
+                elif event.key == pygame.K_ESCAPE:
+                    save_settings()
+                    return
+        options = ["Volume:  < %d%% >" % settings["volume"],
+                   "Difficulty:  < %s >" % settings["difficulty"].capitalize(),
+                   "Tape intros:  %s" % ("On" if settings["chapter_intros"] else "Off"),
+                   "Back"]
+        hint = {0: "LEFT / RIGHT changes the volume.",
+                1: "Easy: 5 hearts, slower monsters.  Normal: 3 hearts.  Hard: 2 hearts, faster monsters. Applies from the next room.",
+                2: "Show a title card when a new tape begins.",
+                3: ""}[selected]
+        draw_menu_frame(screen, "SETTINGS", options, selected, hint, backdrop, frame)
+        present(screen, tape_no)
+        clock.tick(FPS)
+
+
+def show_boss_lore(screen, clock, entries, chap_no):
+    """A short sequence of recovered-log entries shown once, right as a boss fight begins.
+    entries = [(header, body), ...]. Press to advance each one; press again on the last to close."""
+    sound.play("static")
+    for header, body in entries:
+        lines = wrap_text(body, FONTS["mono"], WIDTH - 168)
+        total_chars = len(body)
+        revealed = 0.0
+        frame = 0
+        while True:
+            frame += 1
+            advance = False
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()
-                    raise SystemExit
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                    waiting = False
+                    quit_game()
+                elif event.type == pygame.KEYDOWN and event.key in CONFIRM_KEYS + (pygame.K_ESCAPE,):
+                    if revealed < total_chars:
+                        revealed = total_chars
+                    else:
+                        advance = True
+            revealed = min(total_chars, revealed + 1.1)
+            screen.fill((8, 6, 9))
+            for i in range(0, HEIGHT, 3):                              # a bare scanline texture, nothing fancier
+                pygame.draw.line(screen, (14, 11, 15), (0, i), (WIDTH, i))
+            box = pygame.Rect(60, 150, WIDTH - 120, 220)
+            pygame.draw.rect(screen, (12, 10, 14), box, border_radius=6)
+            pygame.draw.rect(screen, (120, 30, 30), box, 2, border_radius=6)
+            draw_text(screen, header, FONTS["mono"], (230, 80, 80), box.x + 24, box.y + 20)
+            remaining = int(revealed)
+            y = box.y + 62
+            for line in lines:
+                draw_text(screen, line[:remaining], FONTS["mono"], (210, 205, 215), box.x + 24, y)
+                remaining -= len(line) + 1
+                y += 28
+            if revealed >= total_chars and (frame // 30) % 2 == 0:
+                draw_text(screen, "ENTER", FONTS["mono_small"], (140, 135, 145), box.right - 70, box.bottom - 26)
+            present(screen, chap_no + 1)
+            clock.tick(FPS)
+            if advance:
+                break
 
-            screen.fill(COLOR_BG)
-            draw_text_center(screen, "JOURNAL", big_font, COLOR_TEXT, 100)
-            draw_text_center(screen, "No scrolls found yet.", font, COLOR_TEXT, 220)
-            draw_text_center(screen, "Press SPACE to close", font, COLOR_KEY, 420)
-            pygame.display.flip()
-            clock.tick(60)
-        return
 
-    for i, scroll_text in enumerate(collected_scrolls):
-        title = f"Journal entry {i + 1} of {len(collected_scrolls)}"
-        show_scroll(font, big_font, scroll_text, title=title)
-
-
-def play_room(room, room_index, lives, collected_scrolls, font, big_font):
-    """
-    Runs one room until the player either escapes it, loses all
-    their lives, or pauses and quits to the menu.
-    Returns ("escaped", lives, None), ("dead", lives, death_info), or
-    ("quit_to_menu", lives, None).
-    """
-    platform_rects = [pygame.Rect(p) for p in room["platforms"]]
-    door_rect = pygame.Rect(room["door"])
-    key_pos = room["key"]
-    key_rect = pygame.Rect(key_pos[0], key_pos[1], 24, 24) if key_pos else None
-    monsters = build_monsters(room)
-
-    scroll_rect = pygame.Rect(room["scroll_pos"][0], room["scroll_pos"][1], 20, 24) if room.get("scroll") else None
-    scroll_collected = False
-
-    start_x, start_y = room["player_start"]
-    player_x, player_y = float(start_x), float(start_y)
-    velocity_y = 0.0
-    on_ground = False
-    has_key = key_rect is None  # if there's no key in this room, treat as already "collected"
-    invincible_timer = 0
-
-    clock = pygame.time.Clock()
-
+def show_tape(screen, clock, text, chap_no, backdrop=None):
+    """Shows one tape's (or note's) text, typed out letter by letter."""
+    sound.play("scroll")
+    header, body = split_tape(text)
+    lines = wrap_text(body, FONTS["mono"], WIDTH - 168)
+    total_chars = len(body)
+    revealed = 0.0
+    frame = 0
     while True:
+        frame += 1
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                raise SystemExit
-
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                while True:
-                    choice = run_menu("PAUSED", ["Resume", "Journal", "Restart Room", "Quit to Menu"], font, big_font)
-                    if choice == "Journal":
-                        show_journal(collected_scrolls, font, big_font)
-                        continue  # show the pause menu again after closing the journal
-                    elif choice == "Restart Room":
-                        player_x, player_y = float(start_x), float(start_y)
-                        velocity_y = 0.0
-                        on_ground = False
-                        has_key = key_rect is None
-                        invincible_timer = 0
-                        monsters = build_monsters(room)
-                        break
-                    elif choice == "Quit to Menu":
-                        return "quit_to_menu", lives, None
-                    else:
-                        break  # Resume: just fall through to normal gameplay
-
-        keys = pygame.key.get_pressed()
-
-        if keys[pygame.K_a]:
-            player_x -= MOVE_SPEED
-        if keys[pygame.K_d]:
-            player_x += MOVE_SPEED
-        player_x = max(0, min(WINDOW_WIDTH - PLAYER_WIDTH, player_x))
-
-        if keys[pygame.K_SPACE] and on_ground:
-            velocity_y = JUMP_STRENGTH
-
-        velocity_y += GRAVITY
-        player_y += velocity_y
-
-        player_rect = pygame.Rect(player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT)
-        on_ground = False
-        for plat in platform_rects:
-            if player_rect.colliderect(plat):
-                if velocity_y >= 0 and (player_rect.bottom - velocity_y) <= plat.top + 1:
-                    # Falling and landing on top of the platform.
-                    player_y = plat.top - PLAYER_HEIGHT
-                    velocity_y = 0
-                    on_ground = True
-                elif velocity_y < 0 and (player_rect.top - velocity_y) >= plat.bottom - 1:
-                    # BUG FIX: moving upward and bonking your head on the
-                    # underside of a platform. Without this case, jumping
-                    # up into a platform from below let you phase straight
-                    # through it, since only the "landing on top" case was
-                    # handled before.
-                    player_y = plat.bottom
-                    velocity_y = 0
-
-        if player_y > WINDOW_HEIGHT:
-            player_x, player_y = float(start_x), float(start_y)
-            velocity_y = 0
-
-        player_rect = pygame.Rect(player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT)
-
-        if not has_key and key_rect and player_rect.colliderect(key_rect):
-            has_key = True
-
-        if scroll_rect and not scroll_collected and player_rect.colliderect(scroll_rect):
-            scroll_collected = True
-            show_scroll(font, big_font, room["scroll"])
-            collected_scrolls.append(room["scroll"])
-
-        # Update monsters and check for collisions with the player
-        if invincible_timer > 0:
-            invincible_timer -= 1
-
-        for monster in monsters:
-            monster.update(player_rect)
-            if invincible_timer == 0 and player_rect.colliderect(monster.rect()):
-                lives -= 1
-                invincible_timer = INVINCIBILITY_FRAMES
-
-                # Knockback: push the player away from the monster
-                # horizontally, instead of teleporting back to the
-                # room's start. If the player is to the left of the
-                # monster, push them further left, and vice versa.
-                monster_center = monster.rect().centerx
-                if player_rect.centerx < monster_center:
-                    player_x -= KNOCKBACK_DISTANCE
+                quit_game()
+            elif event.type == pygame.KEYDOWN and event.key in CONFIRM_KEYS + (pygame.K_ESCAPE,):
+                if revealed < total_chars:
+                    revealed = total_chars          # first press: show everything
                 else:
-                    player_x += KNOCKBACK_DISTANCE
-                player_x = max(0, min(WINDOW_WIDTH - PLAYER_WIDTH, player_x))
+                    return                          # second press: close
+        revealed = min(total_chars, revealed + 1.2)
 
-                if lives <= 0:
-                    return "dead", lives, {"monster_kind": monster.kind, "room_name": get_room_display_name(room_index)}
-                break  # only lose one life per hit, even with multiple monsters
+        if backdrop is not None:
+            screen.blit(backdrop, (0, 0))
+        else:
+            screen.fill((14, 10, 16))
+        dim = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        dim.fill((0, 0, 0, 170))
+        screen.blit(dim, (0, 0))
+        box = pygame.Rect(60, 140, WIDTH - 120, 240)
+        pygame.draw.rect(screen, (12, 10, 14), box, border_radius=6)
+        pygame.draw.rect(screen, (120, 30, 30), box, 2, border_radius=6)
+        if header:
+            draw_text(screen, header, FONTS["mono"], (230, 80, 80), box.x + 24, box.y + 22)
+        remaining = int(revealed)
+        y = box.y + 66
+        for line in lines:
+            draw_text(screen, line[:remaining], FONTS["mono"], (225, 220, 225), box.x + 24, y)
+            remaining -= len(line) + 1
+            y += 30
+        if revealed >= total_chars and (frame // 30) % 2 == 0:
+            draw_text(screen, "ENTER", FONTS["mono_small"], (150, 145, 155), box.right - 24, box.bottom - 26, center=False)
+        present(screen, chap_no + 1)
+        clock.tick(FPS)
 
-        if has_key and player_rect.colliderect(door_rect):
-            return "escaped", lives, None
 
-        # ---- DRAW ----
-        theme = CHAPTERS[room["chapter"]]
-        draw_background(screen, theme)
-        for plat in platform_rects:
-            pygame.draw.rect(screen, COLOR_PLATFORM, plat)
+def show_journal(screen, clock, collected, chap_no, backdrop=None):
+    """The file log: every tape and note found so far, readable again."""
+    if not collected:
+        run_menu(screen, clock, "TAPE LOG", ["Back"], "Nothing recovered yet. Look for cassettes and notes in each room.",
+                 chap_no + 1, 0, backdrop)
+        return
+    labels = [tape_label(t) for t in collected]
+    selected = 0
+    while True:
+        choice = run_menu(screen, clock, "TAPE LOG", labels + ["Back"], "%d file(s) recovered." % len(collected),
+                          chap_no + 1, selected, backdrop)
+        if choice is None or choice == len(labels):
+            return
+        selected = choice
+        show_tape(screen, clock, collected[choice], chap_no, backdrop)
 
-        if not has_key and key_rect:
-            pygame.draw.rect(screen, COLOR_KEY, key_rect)
 
-        if scroll_rect and not scroll_collected:
-            pygame.draw.rect(screen, (200, 200, 240), scroll_rect)
+def show_pause_menu(screen, clock, chap_no, collected, backdrop):
+    """Returns 'resume' or 'menu'."""
+    selected = 0
+    while True:
+        choice = run_menu(screen, clock, "PAUSED", ["Resume", "Tape Log", "Settings", "Quit to Main Menu"],
+                          "", chap_no + 1, selected, backdrop)
+        if choice is None or choice == 0:
+            return "resume"
+        selected = choice
+        if choice == 1:
+            show_journal(screen, clock, collected, chap_no, backdrop)
+        elif choice == 2:
+            show_settings(screen, clock, backdrop, chap_no + 1)
+        else:
+            return "menu"
 
-        door_color = COLOR_DOOR_OPEN if has_key else COLOR_DOOR_LOCKED
-        pygame.draw.rect(screen, door_color, door_rect)
 
-        for monster in monsters:
-            draw_monster(screen, monster)
+def show_slot_picker(screen, clock):
+    """Returns 1, 2 or 3 (the chosen save slot), or None for Back."""
+    labels = [slot_label(s) for s in range(1, NUM_SLOTS + 1)] + ["Back"]
+    choice = run_menu(screen, clock, "SELECT TAPE", labels, "Pick a save slot.")
+    if choice is None or choice == NUM_SLOTS:
+        return None
+    return choice + 1
 
-        # Flash the player while invincible, so it's clear they got hit
-        if invincible_timer == 0 or invincible_timer % 10 < 5:
-            player_color = COLOR_PLAYER_HIT if invincible_timer > 0 else COLOR_PLAYER
-            draw_player(screen, player_rect, player_color)
 
-        room_name_surf = font.render(get_room_display_name(room_index), True, COLOR_TEXT)
-        screen.blit(room_name_surf, (WINDOW_WIDTH - room_name_surf.get_width() - 10, 10))
-        draw_lives(screen, font, lives)
+def show_chapter_intro(screen, clock, chap_no):
+    """The card shown when a new tape begins (can be turned off in Settings)."""
+    label, name = split_chapter_title(chap_no)
+    guide = GUIDE_LINES[chap_no % len(GUIDE_LINES)]
+    sound.stop_music()
+    sound.play("static")
 
-        hint_surf = font.render("ESC to pause", True, (140, 140, 150))
-        screen.blit(hint_surf, (10, WINDOW_HEIGHT - 30))
+    def draw(frame):
+        screen.fill((6, 4, 8))
+        draw_text(screen, label, FONTS["title"], WHITE, WIDTH // 2, 190, center=True)
+        draw_text(screen, name, FONTS["big"], RED, WIDTH // 2, 250, center=True)
+        for i, line in enumerate(wrap_text('GUIDE: "%s"' % guide, FONTS["mono_small"], 640)):
+            draw_text(screen, line, FONTS["mono_small"], (150, 140, 150), WIDTH // 2, 330 + i * 22, center=True)
+        draw_text(screen, "ENTER to begin", FONTS["mono_small"], (95, 90, 100), WIDTH // 2, HEIGHT - 26, center=True)
 
+    draw(0)
+    analog.static_burst(screen, clock, 30, True)
+    wait_for_key(screen, clock, draw, chap_no + 1)
+
+
+def show_chapter_complete(screen, clock, chap_no):
+    label, name = split_chapter_title(chap_no)
+    guide = random.choice(GUIDE_LINES)
+    sound.stop_music()
+    sound.play("chapter_complete")
+
+    def draw(frame):
+        screen.fill((6, 4, 8))
+        draw_text(screen, "%s RECOVERED" % label, FONTS["title"], WHITE, WIDTH // 2, 190, center=True)
+        draw_text(screen, name, FONTS["big"], RED, WIDTH // 2, 250, center=True)
+        for i, line in enumerate(wrap_text('GUIDE: "%s"' % guide, FONTS["mono_small"], 640)):
+            draw_text(screen, line, FONTS["mono_small"], (150, 140, 150), WIDTH // 2, 330 + i * 22, center=True)
+        draw_text(screen, "ENTER to continue", FONTS["mono_small"], (95, 90, 100), WIDTH // 2, HEIGHT - 26, center=True)
+
+    draw(0)
+    analog.static_burst(screen, clock, 25, True)
+    wait_for_key(screen, clock, draw, chap_no + 1, 45)
+
+
+def show_game_over(screen, clock, chap_no):
+    """Returns 0 for Try Again, 1 for Main Menu."""
+    settings["subject_count"] += 1       # the Subject number goes up on every death, and it is saved so it never resets
+    count = settings["subject_count"]
+    sound.stop_music()
+    sound.play("shriek")
+    visuals.jumpscare_sequence(screen, clock, frames=14, big=True)
+    sound.play("tape_stop")
+    analog.static_burst(screen, clock, 40, False)
+    line = random.choice(GAME_OVER_LINES)
+    if "%d" in line:
+        line = line % count
+    if count >= 7 and not settings["twist_done"]:
+        # Once, and only once: a number that was already retired comes back.
+        settings["twist_done"] = True
+        line = "SUBJECT 2 NOT RECOVERED. This number was retired. Please disregard it."
+    save_settings()
+    choice = run_menu(screen, clock, "SUBJECT NOT RECOVERED", ["Try Again", "Main Menu"],
+                      line, chap_no + 1)
+    return 0 if choice == 0 else 1
+
+
+def show_ending(screen, clock, collected):
+    sound.stop_music()
+    sound.play("shriek")
+    visuals.jumpscare_sequence(screen, clock, frames=22, big=True)   # the tape pretends to end, then does not
+    sound.play("chapter_complete")
+    lines = ["END OF RECORDING", "", "Files recovered: %d" % len(collected), "",
+             "Additional footage is still being logged.", "", "It always is.", "", "A game by Karman"]
+
+    def draw(frame):
+        screen.fill((4, 3, 6))
+        for i, line in enumerate(lines):
+            font = FONTS["title"] if i == 0 else FONTS["mono"]
+            color = WHITE if i == 0 else ((150, 30, 30) if line == "It always is." else (190, 185, 195))
+            draw_text(screen, line, font, color, WIDTH // 2, 120 + i * 40, center=True)
+
+    draw(0)
+    analog.static_burst(screen, clock, 40, True)
+    wait_for_key(screen, clock, draw, 1, 60)
+
+
+def show_ending_choice(screen, clock):
+    """The last scene: a plain white room, the beep from the whole game is now clearly a heart monitor,
+    and one quiet choice. There is no timer and no right answer. Returns 'stay' or 'let_go'."""
+    sound.stop_music()
+    selected = 0
+    frame = 0
+    while True:
+        frame += 1
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quit_game()
+            elif event.type == pygame.KEYDOWN and frame > 90:
+                if event.key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_a, pygame.K_d):
+                    selected = 1 - selected
+                    sound.play("click")
+                elif event.key in CONFIRM_KEYS:
+                    return "stay" if selected == 0 else "let_go"
+        if frame % 90 == 45:
+            sound.play("beep")
+        screen.fill((236, 238, 240))
+        draw_monitor_line(screen, ((frame - 45) % 90) * 9, 300, (120, 150, 130))
+        if frame > 30:
+            draw_text(screen, "You can still hear it.", FONTS["big"], (70, 70, 78), WIDTH // 2, 170, center=True, shadow=None)
+        if frame > 90:
+            for i, label in enumerate(("STAY", "LET GO")):
+                x = 280 + i * 240
+                if i == selected:
+                    draw_text(screen, "> %s <" % label, FONTS["big"], (150, 40, 40), x, 400, center=True, shadow=None)
+                else:
+                    draw_text(screen, label, FONTS["big"], (130, 130, 138), x, 400, center=True, shadow=None)
+            draw_text(screen, "LEFT / RIGHT + ENTER", FONTS["mono_small"], (170, 170, 176), WIDTH // 2, HEIGHT - 26,
+                      center=True, shadow=None)
         pygame.display.flip()
-        clock.tick(60)
+        clock.tick(FPS)
 
 
-def build_death_message(death_info):
+def show_let_go(screen, clock):
+    """The beep slows down, then stops. One line appears."""
+    beeps = [0, 100, 250, 450]                     # frame of each beep: further and further apart, then none
+    frame = 0
+    while frame < 800:
+        frame += 1
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quit_game()
+        if frame in beeps:
+            sound.play("beep")
+        blip = None
+        for b in beeps:
+            if 0 <= frame - b < 80:
+                blip = (frame - b) * 10
+        screen.fill((236, 238, 240))
+        draw_monitor_line(screen, blip, 300, (120, 150, 130))
+        if frame > 560:
+            draw_text(screen, "SUBJECT 0 RECOVERED.", FONTS["big"], (70, 70, 78), WIDTH // 2, 170, center=True, shadow=None)
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def show_credits(screen, clock):
+    """Credits roll with no music. Enter skips them."""
+    lines = ["HALLOWED GROUNDS", "", "A game by Karman", "", "",
+             "Designations 01 through 04", "were never four separate recordings.", "",
+             "The beep was always the beep.", "", "", "SUBJECT 0 RECOVERED", "", "", ""]
+    y = float(HEIGHT)
+    frame = 0
+    while y > -len(lines) * 40:
+        frame += 1
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quit_game()
+            elif event.type == pygame.KEYDOWN and frame > 30 and event.key in CONFIRM_KEYS + (pygame.K_ESCAPE,):
+                return
+        y -= 0.9
+        screen.fill((4, 3, 6))
+        for i, line in enumerate(lines):
+            font = FONTS["title"] if i == 0 else FONTS["mono"]
+            draw_text(screen, line, font, (190, 185, 195), WIDTH // 2, int(y + i * 40), center=True)
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+# ==================================================================
+# 7. PLAY_ROOM  -  the heart of the game
+# ==================================================================
+def play_room(screen, clock, room, index, lives, collected):
     """
-    Returns a list of flavor-text lines for the death screen, varying
-    based on which TYPE of monster caught the player and which room
-    they were in. Falls back to a generic message if we don't have
-    that info for some reason.
+    Plays one room until something ends it.
+    Returns (result, lives) where result is 'escaped', 'dead' or 'menu'.
     """
-    if death_info is None:
-        return ["The mansion has claimed you.", "GAME OVER"]
+    chapter = chapter_info(room)
+    chap_no = chapter_number(room)
+    difficulty = chapter.get("difficulty", 1.0)
+    plan = plan_extras(room, index)                # where the locker, note, battery and secret wall go in this room
+    room_no = plan["room_no"]
+    safe = plan["safe"]
+    dark = plan["dark"]
 
-    room_name = death_info.get("room_name", "the mansion")
-    kind = death_info.get("monster_kind")
+    # --- Build everything in the room from the JSON ---
+    platforms = [pygame.Rect(*p) for p in room_platforms(room)]
+    pits = room.get("pits", [])
+    traps = [] if safe else [dict(t, rect=pygame.Rect(t["x"], t["y"], t["w"], t.get("h", 14))) for t in room.get("traps", [])]
+    crumbles = [{"rect": pygame.Rect(*c), "state": "solid", "timer": 0} for c in room.get("crumbles", [])]
+    boss_doors = [pygame.Rect(x, y, 46, 90) for x, y in room.get("boss_doors", [])]
+    collapse_queue = [pygame.Rect(*p) for p in room.get("collapse_platforms", [])]  # removed one by one in the Warden's phase 3
+    collapse_timer = 0
+    crumble_of = {id(c["rect"]): c for c in crumbles}
+    pre = preset()
+    pos, length = chapter_position(index)
+    bg = visuals.Background(chapter, chap_no, index, pos, length)
+    particles = visuals.Particles()
+    sprite = visuals.PlayerSprite()
+    escaping = 0                                 # counts up while the door swings open
+    door = pygame.Rect(*room["door"])
+    key_rect = pygame.Rect(room["key"][0], room["key"][1], KEY_SIZE, KEY_SIZE)
+    tape_text = room.get("scroll", "")
+    tape_rect = None
+    if tape_text and "scroll_pos" in room:
+        tape_rect = pygame.Rect(room["scroll_pos"][0], room["scroll_pos"][1], TAPE_W, TAPE_H)
+    tape_taken = tape_rect is None or tape_text in collected
+    monsters = build_monsters(room, difficulty, index, strip=safe)
+    minion_life_left = {}                          # id(monster) -> frames left, for summoner-spawned minions
+    projectiles = []            # each is a dict: x, y, vx, size
 
-    if kind == "patroller":
-        return [
-            f"The wolf caught you in {room_name}.",
-            "Its jaws did not hesitate.",
-            "GAME OVER",
-        ]
-    elif kind == "chaser":
-        return [
-            f"It was waiting for you in {room_name}.",
-            "You never saw it wake.",
-            "GAME OVER",
-        ]
+    # --- Extras for this room ---
+    hide_spot = plan["hide"]                       # a locker (or None)
+    hidden = False
+    found_timer = 0
+    note = plan["note"]                            # {"rect", "text"} or None
+    note_taken = note is None or note["text"] in collected
+    battery_item = plan["battery"]
+    battery_taken = False
+    secret = plan["secret"]
+    secret_found = secret is not None and room_no in settings["secrets"]
+    secret_open = 1.0 if secret_found else 0.0
+    secret_note_taken = secret is None or secret["text"] in collected
+    marks = list(plan["marks"])
+    if settings["loops"] > 0:                      # after choosing STAY, every room carries one more mark
+        marks.append({"kind": "scratch", "x": 90 + (index * 53) % 620, "y": 190, "count": min(settings["loops"] + 4, 9)})
+    hush = None
+    if plan["hush"]:
+        hush = {"x": 700.0 if PLAYER_W + room["player_start"][0] < WIDTH // 2 else 100.0, "dir": 0, "fade": 0.0}
+        hush["dir"] = -1 if hush["x"] > WIDTH // 2 else 1
+    caller_cooldown = 0
+    if safe:
+        lives = max_lives()                        # a quiet room: rest
+        RUN["battery"] = BATTERY_MAX
+    if dark and RUN["battery"] < 40:
+        RUN["battery"] = 40                        # a little grace so a retry is never pitch black
+
+    # --- Player state ---
+    player = pygame.Rect(room["player_start"][0], room["player_start"][1], PLAYER_W, PLAYER_H)
+    vel_y = 0.0
+    on_ground = False
+    coyote = 0
+    jump_buffer = 0
+    facing = 1
+    has_key = False
+    has_charge = False                             # carrying the boss-defeating charge item
+    stamina = STAMINA_MAX                          # running uses this up; standing or walking refills it
+    tired = False                                  # True after stamina hits zero: no running until it recovers
+    noise_events = []                              # every sound you make: {"x", "y", "radius", "life"}. Creatures listen to these.
+    key_from_boss = bool(room.get("key_from_boss"))
+    if key_from_boss:
+        key_rect = pygame.Rect(-300, -300, KEY_SIZE, KEY_SIZE)   # parked off-screen until the boss drops it
+    charge_rect = pygame.Rect(room["charge_item"][0], room["charge_item"][1], 26, 26) if room.get("charge_item") else None
+    charge_taken = charge_rect is None
+    invincible = 0
+    knock_vx = 0
+    knock_frames = 0
+    shake = 0
+    message, message_timer = "", 0
+    if safe:
+        message, message_timer = "THE ROOM IS QUIET. REST HERE.", 120
+    frame = 0
+    world = pygame.Surface((WIDTH, HEIGHT))
+    safe_pos = player.topleft                    # where you reappear if you fall into a pit
+
+    sound.play_music(chap_no)
+    analog.set_level(chap_no)
+    scare_flash = 0
+    first_time_kinds = {m.kind for m in monsters if FIRST_SEEN_KIND.get(m.kind) == index}
+    entering_final_tape = chap_no == len(CHAPTER_ORDER) - 1 and pos == 0
+    is_boss_room = bool(room.get("boss_intro"))
+    if first_time_kinds or entering_final_tape or is_boss_room:
+        sound.play("shriek")
+        visuals.jumpscare_sequence(screen, clock, frames=22 if is_boss_room else 18, big=True)
+    if is_boss_room and room.get("boss_lore"):
+        show_boss_lore(screen, clock, [tuple(e) for e in room["boss_lore"]], chap_no)
+    # Glitchy picture is ONLY for boss fights: add "boss": "mini" or "boss" to a room in rooms.json
+    analog.set_boss(room.get("boss", 0))
+
+    while True:
+        frame += 1
+        forced_hit = None                        # set when something catches you outside the normal hit checks
+        jumped = False
+        loud_now = False
+
+        # ---------- 1. Events ----------
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quit_game()
+            elif event.type == pygame.KEYDOWN:
+                if event.key in JUMP_KEYS:
+                    jump_buffer = JUMP_BUFFER_FRAMES
+                    hidden = False               # jumping out of a locker
+                elif event.key == pygame.K_ESCAPE:
+                    if show_pause_menu(screen, clock, chap_no, collected, world) == "menu":
+                        return "menu", lives
+                    lives = min(lives, max_lives())
+                elif event.key in HIDE_KEYS and not escaping:
+                    if hidden:
+                        hidden = False
+                    elif hide_spot is not None and on_ground and player.colliderect(hide_spot):
+                        hidden = True
+                        found_timer = 0
+                        player.centerx = hide_spot.centerx
+                        sound.play("click")
+            elif event.type == pygame.KEYUP:
+                if event.key in JUMP_KEYS and vel_y < JUMP_CUT:
+                    vel_y = JUMP_CUT                 # let go early = shorter hop (but never a tiny one)
+
+        # ---------- 2. Player movement ----------
+        keys = pygame.key.get_pressed()
+        move = 0
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            move -= 1
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            move += 1
+        if hidden and move:
+            hidden = False                           # walking out of a locker
+        if hidden:
+            move = 0                                 # hiding means standing perfectly still
+        if escaping:
+            move = 0                                 # no steering while the door opens
+            escaping += 1
+            player.x += max(-3, min(3, door.centerx - player.centerx))     # walk into the doorway
+        if move:
+            facing = move
+
+        # Running: hold Shift while moving. It is faster, but it drains stamina and it is loud.
+        shift = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
+        running = bool(move) and bool(shift) and stamina > 0 and not tired
+        if running:
+            stamina -= STAMINA_DRAIN
+            if stamina <= 0:
+                stamina, tired = 0.0, True           # worn out: cannot run again until stamina recovers
+        else:
+            stamina = min(STAMINA_MAX, stamina + STAMINA_REGEN)
+            if tired and stamina >= STAMINA_RECOVER:
+                tired = False
+
+        # Noise: running is loud, walking is soft, standing still is silent.
+        # Each noise is a little record (where, how far it carries, how long it lasts) so a creature can check it later.
+        if running and frame % 10 == 0:
+            noise_events.append({"x": player.centerx, "y": player.centery, "radius": NOISE_RUN, "life": NOISE_LIFE})
+            loud_now = True
+        elif move and not running and frame % 24 == 0:
+            noise_events.append({"x": player.centerx, "y": player.centery, "radius": NOISE_WALK, "life": NOISE_LIFE})
+        for n in noise_events:
+            n["life"] -= 1
+        noise_events[:] = [n for n in noise_events if n["life"] > 0]
+
+        if knock_frames > 0:                         # being knocked back: can't steer
+            dx = knock_vx
+            knock_frames -= 1
+        else:
+            dx = move * (RUN_SPEED if running else MOVE_SPEED)
+
+        # Everything solid this frame: platforms, plus crumbling platforms that have not fallen yet
+        solids = platforms + [c["rect"] for c in crumbles if c["state"] != "gone"]
+
+        # Move sideways first, then fix any overlap with platforms
+        player.x += int(dx)
+        for p in solids:
+            if player.colliderect(p):
+                if dx > 0:
+                    player.right = p.left
+                elif dx < 0:
+                    player.left = p.right
+        player.x = max(0, min(WIDTH - PLAYER_W, player.x))
+
+        # Jumping (with coyote time and a jump buffer, so it feels fair)
+        coyote = COYOTE_FRAMES if on_ground else max(0, coyote - 1)
+        jump_buffer = max(0, jump_buffer - 1)
+        if jump_buffer > 0 and coyote > 0:
+            vel_y = JUMP_SPEED
+            coyote = 0
+            jump_buffer = 0
+            jumped = True
+            sound.play("jump")
+
+        # Then move up/down and fix overlap. Moving UP into a platform bumps your head.
+        vel_y = min(vel_y + GRAVITY, MAX_FALL_SPEED)
+        player.y += round(vel_y)
+        on_ground = False
+        for p in solids:
+            if player.colliderect(p):
+                if vel_y > 0:
+                    player.bottom = p.top
+                    on_ground = True
+                    c = crumble_of.get(id(p))
+                    if c is not None and c["state"] == "solid":       # you stepped on it: it starts to crumble
+                        c["state"], c["timer"] = "shaking", pre["crumble"]
+                elif vel_y < 0:
+                    player.top = p.bottom
+                vel_y = 0
+        if player.top < 0:
+            player.top = 0
+
+        # Crumbling platforms fall apart, then grow back a couple of seconds later
+        for c in crumbles:
+            if c["state"] == "shaking":
+                c["timer"] -= 1
+                if c["timer"] <= 0:
+                    c["state"], c["timer"] = "gone", 150
+                    particles.burst(c["rect"].centerx, c["rect"].centery, 12, (130, 115, 100), speed=2.0, life=30, size=3, gravity=0.15)
+            elif c["state"] == "gone":
+                c["timer"] -= 1
+                if c["timer"] <= 0 and not player.colliderect(c["rect"].inflate(6, 6)):
+                    c["state"] = "solid"
+
+        # Remember the last safe spot you stood on (not near spikes), for pit respawns
+        if on_ground:
+            for p in platforms:
+                if p.top == player.bottom and p.left < player.right and p.right > player.left:
+                    near_spikes = any(player.colliderect(t["rect"].inflate(40, 40)) for t in traps)
+                    if not near_spikes:
+                        safe_pos = (max(p.left + 6, min(player.x, p.right - PLAYER_W - 6)), p.top - PLAYER_H)
+                    break
+
+        sprite.update(player, vel_y, on_ground, move, facing, invincible, frame,
+                      particles if PLAYER_PUFFS else _NO_PARTICLES)
+
+        # Fell into a pit?
+        if player.top > HEIGHT + 10:
+            sound.play("hit")
+            shake = 12
+            particles.burst(player.centerx, HEIGHT - 10, 12, (170, 55, 70), speed=2.6, life=30, size=3, up=2.5)
+            if pre["pit_costs_life"]:
+                lives -= 1
+                if lives <= 0:
+                    return "dead", 0
+            player.topleft = safe_pos
+            vel_y, knock_frames, invincible = 0.0, 0, 60
+            message, message_timer = "WATCH YOUR STEP", 70
+
+        # ---------- 3. Monsters and projectiles ----------
+        pending_spawns = []
+        for m in monsters:
+            for name in m.update(player, projectiles, hidden, noise_events):
+                sound.play(name)
+                if name == "shoot":
+                    particles.burst(m.rect.centerx, m.rect.centery, 8, (150, 240, 150), speed=2.2, life=18, size=3, gravity=0)
+                elif name == "wake":
+                    particles.burst(m.rect.centerx, m.rect.centery, 10, (190, 80, 220), speed=2.0, life=24, size=3)
+                    scare_flash = 10
+                    sound.play("shriek")
+                elif name == "summon":
+                    pending_spawns.append(m)
+            if m.kind == "warden" and m.just_entered_phase:
+                scare_flash = 14
+                sound.play("shriek")
+                particles.burst(m.rect.centerx, m.rect.centery, 36, (210, 70, 70), speed=3.4, life=36, size=4)
+                if m.just_entered_phase == 3:
+                    collapse_timer = 1          # start dropping platforms on the very next frame
+        # The Caller also answers NOISE: a loud step calls in one minion (then it has to wait a moment).
+        caller_cooldown = max(0, caller_cooldown - 1)
+        if loud_now and caller_cooldown == 0:
+            alive = sum(1 for mm in monsters if getattr(mm, "is_minion", False))
+            for m in monsters:
+                if m.kind == "summoner" and not m.defeated and alive < 4:
+                    pending_spawns.append(m)
+                    caller_cooldown = 150
+                    sound.play("summon")
+                    break
+        for boss in pending_spawns:
+            minion = Monster({"kind": "chaser", "x": boss.x, "y": boss.y, "size": 24, "color": [120, 40, 130],
+                              "speed": boss.minion_speed, "detect_radius": 999, "sleep_radius": 1200})
+            minion.awake = True                    # minions come out already alert, no sneaking past them
+            minion.is_minion = True
+            monsters.append(minion)
+            minion_life_left[id(minion)] = boss.minion_life
+            particles.burst(boss.rect.centerx, boss.rect.centery, 12, (190, 80, 220), speed=2.2, life=26, size=3)
+        for mid in list(minion_life_left):
+            minion_life_left[mid] -= 1
+        expired = {mid for mid, t in minion_life_left.items() if t <= 0}
+        if expired:
+            for m in monsters:
+                if id(m) in expired:
+                    particles.burst(m.rect.centerx, m.rect.centery, 8, (150, 80, 180), speed=1.6, life=20, size=2)
+            monsters[:] = [m for m in monsters if id(m) not in expired]
+            for mid in expired:
+                del minion_life_left[mid]
+        if collapse_timer > 0:                     # the Warden's arena falling apart, one platform at a time
+            collapse_timer -= 1
+            if collapse_timer == 0 and collapse_queue:
+                gone = collapse_queue.pop(0)
+                if gone in platforms:
+                    platforms.remove(gone)
+                particles.burst(gone.centerx, gone.centery, 18, (120, 40, 40), speed=2.2, life=30, size=3)
+                sound.play("manifest")
+                if collapse_queue:
+                    collapse_timer = 60
+        for pr in projectiles:
+            pr["x"] += pr["vx"]
+        projectiles[:] = [pr for pr in projectiles if -30 < pr["x"] < WIDTH + 30]
+
+        # ---------- 3b. Extras: lockers, the flashlight, the Hush, the secret wall ----------
+        if hide_spot is not None and not hidden and not escaping and message_timer == 0 and player.colliderect(hide_spot):
+            message, message_timer = "DOWN / S: HIDE", 45
+        if hidden:
+            # A Designation that stands next to your locker too long finds you.
+            near = any(m.kind in DESIGNATIONS and not m.defeated and
+                       math.hypot(m.rect.centerx - hide_spot.centerx, m.rect.centery - hide_spot.centery) < 70
+                       for m in monsters)
+            found_timer = found_timer + 1 if near else max(0, found_timer - 2)
+            if found_timer >= HIDE_FOUND_FRAMES:
+                hidden = False
+                found_timer = 0
+                forced_hit = hide_spot.centerx
+                message, message_timer = "IT FOUND YOU.", 80
+        if dark and not escaping:
+            RUN["battery"] = max(0.0, RUN["battery"] - BATTERY_DRAIN)
+        if hush is not None and not escaping:
+            hush["x"] += hush["dir"] * HUSH_SPEED
+            if hush["x"] < 40:
+                hush["x"], hush["dir"] = 40.0, 1
+            elif hush["x"] > WIDTH - 40:
+                hush["x"], hush["dir"] = float(WIDTH - 40), -1
+            if abs(player.centerx - hush["x"]) < HUSH_RANGE:
+                hush["fade"] = min(float(HUSH_FADE_FRAMES), hush["fade"] + 1)       # the sound slips away over 2 seconds
+            else:
+                hush["fade"] = max(0.0, hush["fade"] - 3)                           # and comes back quickly
+            sound.set_volume(settings["volume"] / 100 * (1 - hush["fade"] / HUSH_FADE_FRAMES))
+            if hush["fade"] >= HUSH_FADE_FRAMES and (move != 0 or jumped):
+                forced_hit = hush["x"]                                              # you moved in the silence: it finds you
+                message, message_timer = "IT HEARD YOU.", 60
+        if secret is not None:
+            if not secret_found and player.colliderect(secret["panel"]):
+                secret_found = True
+                if room_no not in settings["secrets"]:
+                    settings["secrets"].append(room_no)
+                    save_settings()
+                if secret["reward"] == "battery":
+                    RUN["battery"] = BATTERY_MAX
+                elif lives < max_lives():
+                    lives += 1
+                message, message_timer = "A WALL GIVES WAY.", 90
+                sound.play("manifest")
+                particles.burst(secret["panel"].centerx, secret["panel"].centery, 20, (120, 100, 90), speed=2.4, life=34, size=3)
+            if secret_found:
+                secret_open = min(1.0, secret_open + 0.05)
+
+        # ---------- 4. Getting hit (and defeating a boss) ----------
+        if escaping:
+            pass                                     # no hits while the door is opening
+        elif invincible > 0:
+            invincible -= 1
+        else:
+            hit_from = None
+            defeated = False
+            for m in monsters:
+                if m.defeated or not player.colliderect(m.rect):
+                    continue
+                if hidden and m.kind in DESIGNATIONS:
+                    continue                         # you are inside a locker: it walks right past you
+                last_pos = m.rect.topleft
+                if m.kind in ("beamer", "summoner") and has_charge:
+                    m.defeated = True
+                    has_charge = False
+                    defeated = True
+                elif m.kind == "guardian" and vel_y > 0 and player.bottom - m.rect.top < 18:
+                    m.defeated = True
+                    vel_y = JUMP_SPEED * 0.55        # a small bounce, like a stomp
+                    defeated = True
+                else:
+                    hit_from = m.rect.centerx
+                if defeated:
+                    sound.play("defeat")
+                    particles.burst(last_pos[0] + m.w // 2 if hasattr(m, "w") else last_pos[0],
+                                    last_pos[1] + (m.h if hasattr(m, "h") else m.size) // 2,
+                                    30, (255, 225, 150), speed=3.5, life=40, size=4)
+                    if key_from_boss and not has_key:
+                        key_rect.topleft = last_pos
+                        message, message_timer = "THE PRESENCE IS GONE", 90
+                    invincible = pre["invincible"]
+                break
+            if not defeated and hit_from is None and not hidden:
+                for pr in projectiles:
+                    pr_rect = pygame.Rect(int(pr["x"]), int(pr["y"]), pr["size"], pr["size"])
+                    if player.colliderect(pr_rect):
+                        hit_from = pr_rect.centerx
+                        projectiles.remove(pr)
+                        break
+            if not defeated and hit_from is None:
+                for m in monsters:
+                    br = m.beam_rect if hasattr(m, "beam_rect") else None
+                    if br is not None and player.colliderect(br):
+                        hit_from = player.centerx        # a full-width beam has no meaningful "side"
+                        break
+            if not defeated and hit_from is None:
+                for t in traps:
+                    if trap_active(t, frame) and player.colliderect(t["rect"]):
+                        hit_from = t["rect"].centerx
+                        break
+            if not defeated and hit_from is None and forced_hit is not None:
+                hit_from = forced_hit                    # found in a locker, or caught moving in the Hush's silence
+            if hit_from is not None:
+                lives -= 1
+                invincible = pre["invincible"]
+                knock_vx = 7 if player.centerx >= hit_from else -7     # away from whatever hit us
+                knock_frames = KNOCKBACK_FRAMES
+                vel_y = -6
+                shake = 12
+                sound.play("hit")
+                particles.burst(player.centerx, player.centery, 14, (230, 70, 70), speed=3.0, life=26, size=3)
+                if lives <= 0:
+                    return "dead", 0
+
+        # ---------- 5. Key, tape, notes, and door ----------
+        if charge_rect is not None and not charge_taken and player.colliderect(charge_rect):
+            charge_taken = True
+            has_charge = True
+            message, message_timer = "CHARGE RECOVERED", 90
+            sound.play("pickup")
+            particles.burst(charge_rect.centerx, charge_rect.centery, 16, (150, 210, 255), speed=2.6, life=32, size=3)
+        if not has_key and player.colliderect(key_rect):
+            has_key = True
+            message, message_timer = "KEY RECOVERED", 90
+            sound.play("pickup")
+            particles.burst(key_rect.centerx, key_rect.centery, 16, (255, 220, 90), speed=2.6, life=32, size=3, gravity=0.02)
+        if battery_item is not None and not battery_taken and player.colliderect(battery_item):
+            battery_taken = True
+            RUN["battery"] = min(BATTERY_MAX, RUN["battery"] + BATTERY_PICKUP)
+            message, message_timer = "BATTERY RECOVERED", 90
+            sound.play("pickup")
+            particles.burst(battery_item.centerx, battery_item.centery, 12, (150, 240, 170), speed=2.2, life=28, size=3)
+
+        if not tape_taken and player.colliderect(tape_rect):
+            tape_taken = True
+            if tape_text not in collected:
+                collected.append(tape_text)
+            particles.burst(tape_rect.centerx, tape_rect.centery, 14, (230, 80, 80), speed=2.4, life=28, size=3, gravity=0.02)
+            show_tape(screen, clock, tape_text, chap_no, world)
+        if note is not None and not note_taken and player.colliderect(note["rect"]):
+            note_taken = True
+            if note["text"] not in collected:
+                collected.append(note["text"])
+            particles.burst(note["rect"].centerx, note["rect"].centery, 10, (220, 215, 180), speed=2.0, life=26, size=2, gravity=0.02)
+            show_tape(screen, clock, note["text"], chap_no, world)
+        if secret is not None and not secret_note_taken and secret_found and secret_open >= 0.6 \
+                and player.colliderect(secret["note_rect"]):
+            secret_note_taken = True
+            if secret["text"] not in collected:
+                collected.append(secret["text"])
+            show_tape(screen, clock, secret["text"], chap_no, world)
+
+        if player.colliderect(door) and escaping == 0:
+            if has_key:
+                escaping = 1                 # the door swings open, you step through, the picture fades
+                sound.play("escape")
+                particles.burst(door.centerx, door.centery, 26, (240, 240, 200), speed=3.2, life=34, size=3, gravity=-0.02)
+            elif move != 0 and frame > 20:   # only nag when you actually push into it
+                message, message_timer = "LOCKED. FIND THE KEY.", 60
+
+        # Later tapes: the steady machine beep from the story. In the Warden's final phase, and only
+        # there, it speeds up -- the one place in the whole game this sound is allowed to change pace.
+        warden = next((m for m in monsters if m.kind == "warden"), None)
+        beep_interval = 90 if (warden is not None and warden.phase == 3) else 300
+        if chap_no >= 3 and frame % beep_interval == beep_interval // 2:
+            sound.play("beep")
+
+        # ---------- 6. Drawing ----------
+        try:
+            bg.draw(world, frame, player.centerx)
+        except pygame.error:
+            world.fill(tuple(chapter.get("sky", (20, 20, 30))))   # picture trouble: at least show a plain colored room
+        for px, pw in pits:
+            draw_pit(world, px, pw)
+            if frame % 6 == 0:                                       # glowing embers rise out of the pit
+                particles.emit(px + random.uniform(0, pw), 496, 0, -0.7, 40, 2, (170, 60, 70))
+        for p in platforms:
+            visuals.draw_platform(world, p, chapter, frame)
+        for c in crumbles:
+            draw_crumble(world, c, chapter, frame)
+            if c["state"] == "shaking" and frame % 3 == 0:           # dust falls off a crumbling platform
+                particles.emit(c["rect"].x + random.uniform(0, c["rect"].w), c["rect"].bottom, 0, 0.6, 22, 2, (125, 112, 100), gravity=0.05)
+        for t in traps:
+            draw_spikes(world, t["rect"], trap_active(t, frame), trap_warning(t, frame), frame)
+        for mk in marks:
+            draw_mark(world, mk, frame)
+        if secret is not None:
+            draw_secret_panel(world, secret, secret_open, frame)
+            if secret_found and secret_open >= 0.6 and not secret_note_taken:
+                draw_note(world, secret["note_rect"], frame)
+        if hide_spot is not None:
+            draw_locker(world, hide_spot, frame, hidden)
+        if note is not None and not note_taken:
+            draw_note(world, note["rect"], frame)
+        if battery_item is not None and not battery_taken:
+            draw_battery(world, battery_item, frame)
+        if boss_doors:
+            active_stalker = next((m for m in monsters if m.kind == "doorstalker"), None)
+            for i, d in enumerate(boss_doors):
+                state = "idle"
+                if active_stalker is not None and active_stalker.active_door == i and active_stalker.state in ("telegraph", "manifest"):
+                    state = active_stalker.state
+                visuals.draw_boss_door(world, d, state, frame)
+        visuals.draw_door(world, door, has_key, frame, min(1.0, escaping / 16))
+        if not has_key:
+            visuals.draw_key(world, key_rect, frame)
+            if frame % 18 == 0:
+                particles.emit(key_rect.centerx + random.uniform(-14, 14), key_rect.centery + random.uniform(-12, 8), 0, -0.4, 26, 2, (255, 235, 150))
+        if not tape_taken:
+            visuals.draw_tape(world, tape_rect, frame)
+        if charge_rect is not None and not charge_taken:
+            visuals.draw_charge_item(world, charge_rect, frame)
+        if has_charge:                                    # a soft glow around the player while carrying the charge
+            visuals.add_glow(world, player.centerx, player.centery, 34, (25, 50, 80))
+        for m in monsters:
+            m.draw(world, frame, player)
+            if m.is_copy and not m.defeated:              # a copy is a little TOO clean: a thin pale ring above its head
+                pygame.draw.circle(world, (205, 215, 225), (m.rect.centerx, m.rect.top - 10), 4, 1)
+        for pr in projectiles:
+            visuals.draw_projectile(world, pr, frame)
+        if not hidden:
+            try:
+                draw_player(world, player, facing, invincible, frame, sprite)
+            except pygame.error:
+                pygame.draw.rect(world, (225, 225, 235), player, border_radius=6)   # picture trouble: a plain player rectangle
+        for n in (noise_events if SHOW_NOISE_RINGS else []):      # thin rings that spread out from where you made noise
+            ring = int(n["radius"] * (1 - n["life"] / NOISE_LIFE)) + 1
+            pygame.draw.circle(world, (90, 90, 110), (n["x"], n["y"]), ring, 1)
+        particles.update()
+        particles.draw(world)
+        if dark and not hidden:                           # the flashlight: darkness everywhere except a circle around you
+            b = RUN["battery"] / BATTERY_MAX
+            light_r = LIGHT_R_MIN + (LIGHT_R_MAX - LIGHT_R_MIN) * min(1.0, b / 0.5)
+            if RUN["battery"] < 20 and (frame // 3) % 9 == 0:
+                light_r *= 0.55                           # a dying battery flickers
+            draw_darkness(world, player.centerx, player.centery, light_r)
+            visuals.draw_door(world, door, has_key, frame, min(1.0, escaping / 16))     # the goal is never lost in the dark
+            if not has_key:
+                visuals.draw_key(world, key_rect, frame)
+            if battery_item is not None and not battery_taken:
+                draw_battery(world, battery_item, frame)
+        if hidden:                                        # inside a locker you can barely see anything
+            draw_darkness(world, hide_spot.centerx, hide_spot.y + 16, 26, dense=True)
+
+        offset = (random.randint(-4, 4), random.randint(-4, 4)) if shake > 0 else (0, 0)
+        shake = max(0, shake - 1)
+        screen.fill(BLACK)
+        screen.blit(world, offset)
+        if hush is not None:
+            draw_vignette(screen, hush["fade"] / HUSH_FADE_FRAMES)
+        message_timer = max(0, message_timer - 1)
+        draw_hud(screen, lives, has_key, len(collected), plan["label"], message, message_timer, has_charge,
+                 stamina, tired, RUN["battery"] if dark else None)
+        if frame < 20:
+            visuals.fade(screen, 255 - frame * 13)                   # fade in from black
+        if escaping > 12:
+            visuals.fade(screen, (escaping - 12) * 12)               # fade out through the door
+        if scare_flash > 0:
+            visuals.draw_jumpscare(screen, frame, big=False)
+            scare_flash -= 1
+        present(screen, chap_no + 1)
+        clock.tick(FPS)
+        if escaping > 34:
+            return "escaped", lives
+
+
+# ==================================================================
+# 8. RUN_GAME AND MAIN  -  the flow between rooms
+# ==================================================================
+def run_game(screen, clock, slot, start_index, lives, collected):
+    """Plays rooms one after another, starting at start_index (so saves can resume)."""
+    analog.reset_timecode()
+    index = start_index
+    while True:
+        while index < len(ROOMS):
+            room = ROOMS[index]
+            chap_no = chapter_number(room)
+
+            if is_first_in_chapter(index) and settings["chapter_intros"]:
+                show_chapter_intro(screen, clock, chap_no)
+
+            result, lives = play_room(screen, clock, room, index, lives, collected)
+            analog.set_boss(0)               # back to a clean picture after any room
+            sound.set_volume(settings["volume"] / 100)    # the Hush may have muted everything
+
+            if result == "menu":
+                return
+            if result == "dead":
+                if show_game_over(screen, clock, chap_no) == 0:
+                    lives = max_lives()      # try this room again with full lives
+                    continue
+                return
+
+            # The room was escaped!
+            index += 1
+            just_finished = index - 1
+            if is_last_in_chapter(just_finished):
+                lives = max_lives()          # a new tape starts with full lives
+            write_save(slot, index, lives, collected)
+            if is_last_in_chapter(just_finished):
+                show_chapter_complete(screen, clock, chap_no)
+
+        # The Warden is done. The recording "ends", and then the real ending begins.
+        show_ending(screen, clock, collected)
+        choice = show_ending_choice(screen, clock)
+        settings["ending"] = choice
+        if choice == "stay":
+            settings["subject_count"] += 1       # staying means the loop goes on, as a new Subject
+            settings["loops"] += 1
+            save_settings()
+            index, lives, collected = 0, max_lives(), []
+            write_save(slot, 0, lives, collected)
+            analog.reset_timecode()
+            continue
+        save_settings()
+        show_let_go(screen, clock)
+        show_credits(screen, clock)
+        return
+
+
+def start_new_run(screen, clock, slot):
+    write_save(slot, 0, max_lives(), [])
+    run_game(screen, clock, slot, 0, max_lives(), [])
+
+
+def play_menu(screen, clock):
+    """Pick a slot, then start, continue or restart depending on what's saved there."""
+    slot = show_slot_picker(screen, clock)
+    if slot is None:
+        return
+    save = read_save(slot)
+
+    if save is None:
+        start_new_run(screen, clock, slot)
+    elif save["room_index"] >= len(ROOMS):
+        choice = run_menu(screen, clock, "RUN COMPLETE", ["Restart Run", "Back to Main Menu"],
+                          "This slot already reached the end of the tape.")
+        if choice == 0:
+            start_new_run(screen, clock, slot)
     else:
-        return [f"The mansion has claimed you in {room_name}.", "GAME OVER"]
+        choice = run_menu(screen, clock, "SLOT %d" % slot,
+                          ["Continue (Room %d)" % (save["room_index"] + 1), "Restart Run", "Back"],
+                          "%d file(s) recovered so far." % len(save["collected_scrolls"]))
+        if choice == 0:
+            run_game(screen, clock, slot, save["room_index"], min(save["lives"], max_lives()), save["collected_scrolls"])
+        elif choice == 1:
+            start_new_run(screen, clock, slot)
+
+
+def setup():
+    """Starts pygame, shows the loading bar, and loads everything."""
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Hallowed Grounds  (%s)" % BUILD)
+    print("Hallowed Grounds running from:", os.path.abspath(__file__), "-", BUILD)
+    clock = pygame.time.Clock()
+    make_fonts()
+    tasks = [
+        ("Reading the tape label...", load_game_data),
+        ("Loading settings...", load_settings),
+        ("Tuning the speakers...", lambda: (sound.init(), sound.set_volume(settings["volume"] / 100))),
+        ("Cleaning the tape heads...", lambda: analog.init(screen)),
+    ]
+    show_loading(screen, clock, tasks)
+    return screen, clock
 
 
 def main():
-    font = pygame.font.SysFont(None, 28)
-    big_font = pygame.font.SysFont(None, 48)
-
-    settings = load_settings()
-    pygame.mixer.music.set_volume(settings["volume"] / 100)
-
-    show_loading_screen(font, big_font)
-
+    screen, clock = setup()
     while True:
-        menu_choice = show_main_menu(font, big_font)
-        if menu_choice == "quit":
-            break  # exits the outer while loop, game closes below
-        elif menu_choice == "settings":
-            show_settings(settings, font, big_font)
-            continue  # back to the main menu after adjusting settings
-
-        slot_number, save_data = show_slot_picker(font, big_font)
-
-        if save_data is not None and save_data["room_index"] >= len(ROOMS):
-            # This slot already finished every room. Ask before doing
-            # anything, instead of silently looping zero rooms.
-            confirm_choice = run_menu(
-                "SAVE COMPLETE",
-                ["Restart Run", "Back to Main Menu"],
-                font, big_font,
-            )
-            if confirm_choice == "Back to Main Menu":
-                continue  # jump straight back to show_main_menu(), skip everything below
-            else:
-                # "Restart Run": treat exactly like an empty slot.
-                save_data = None
-
-        if save_data is None:
-            # Empty slot (or a completed slot the player chose to
-            # restart): start completely fresh.
-            starting_room_index = 0
-            lives = STARTING_LIVES
-            collected_scrolls = []
-        else:
-            # Resume: pick up exactly where this slot left off.
-            starting_room_index = save_data["room_index"]
-            lives = save_data["lives"]
-            collected_scrolls = save_data["collected_scrolls"]
-
-        wait_for_space(
-            font, big_font,
-            [
-                "You wake up on a cold stone floor. The door is sealed shut.",
-                "Somewhere in this mansion, a way out exists.",
-                "Find the keys. Avoid what hunts you. Escape.",
-            ],
-            title="HALLOWED GROUNDS",
-        )
-
-        sent_back_to_menu = False
-
-        # enumerate(..., start=N) gives us the real room_index alongside
-        # each room, even though we're only looping over the remaining
-        # rooms (ROOMS[starting_room_index:]) - so saves always record
-        # the correct absolute position in the full ROOMS list.
-        for room_index, room in enumerate(ROOMS[starting_room_index:], start=starting_room_index):
-            result, lives, death_info = play_room(room, room_index, lives, collected_scrolls, font, big_font)
-
-            if result == "dead":
-                wait_for_space(
-                    font, big_font,
-                    build_death_message(death_info),
-                    title="YOU DIED",
-                )
-                sent_back_to_menu = True
-                break
-            elif result == "quit_to_menu":
-                sent_back_to_menu = True
-                break
-            elif result == "escaped":
-                # Automatic save: the player just made real progress,
-                # so lock it in. room_index + 1 because they should
-                # resume at the NEXT room, not replay the one they
-                # just finished.
-                write_save(slot_number, room_index + 1, lives, collected_scrolls)
-
-                # Milestone 6: detect if this was the last room of its
-                # chapter, by comparing this room's chapter to the
-                # NEXT room's chapter. If there's no next room at all
-                # (room_index + 1 is past the end of ROOMS), treat
-                # that the same way - the chapter (and the game) ended.
-                next_index = room_index + 1
-                is_last_room_of_chapter = (
-                    next_index >= len(ROOMS)
-                    or ROOMS[next_index]["chapter"] != room["chapter"]
-                )
-                if is_last_room_of_chapter and settings["show_chapter_transitions"]:
-                    show_chapter_complete(room["chapter"], font, big_font)
-
-        if sent_back_to_menu:
-            continue  # skip the victory screen, go straight back to the main menu
-
-        wait_for_space(
-            font, big_font,
-            ["The front door swings open.", "Moonlight. Fresh air. Freedom."],
-            title="YOU ESCAPED!",
-        )
-        # after winning, loop back around to the main menu too (fall through)
-
-    pygame.quit()
+        sound.play_music(0)
+        analog.set_level(0)
+        analog.set_boss(0)
+        subtitle = {"let_go": "NO FURTHER FOOTAGE", "stay": "A RECOVERED TAPE. AGAIN."}.get(settings["ending"], "A RECOVERED TAPE")
+        choice = run_menu(screen, clock, "HALLOWED GROUNDS", ["Play", "Controls", "Settings", "Quit"], subtitle)
+        if choice == 0:
+            play_menu(screen, clock)
+        elif choice == 1:
+            show_controls(screen, clock)
+        elif choice == 2:
+            show_settings(screen, clock)
+        elif choice == 3:
+            quit_game()
 
 
 if __name__ == "__main__":
-    main()
+    if "--check" in sys.argv:
+        check_extras()
+    else:
+        main()

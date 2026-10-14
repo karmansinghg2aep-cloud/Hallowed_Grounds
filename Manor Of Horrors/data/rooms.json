@@ -48,10 +48,605 @@
       40,
       400
     ],
-    "scroll": "You are not the first to wake here...",
+    "scroll": "TAPE 01 [00:12] You have been selected for the Program. Walk forward. Do not look for the camera.",
     "scroll_pos": [
       80,
       430
+    ]
+  },
+  {
+    "chapter": "west_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        560,
+        400,
+        120,
+        20
+      ],
+      [
+        400,
+        340,
+        120,
+        20
+      ],
+      [
+        240,
+        280,
+        120,
+        20
+      ],
+      [
+        60,
+        220,
+        140,
+        20
+      ]
+    ],
+    "key": [
+      100,
+      190
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [],
+    "player_start": [
+      740,
+      400
+    ],
+    "scroll": "TAPE 01 [01:05] Doors are provided. Keys are provided. This is not a metaphor.",
+    "scroll_pos": [
+      600,
+      380
+    ]
+  },
+  {
+    "chapter": "west_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        120,
+        400,
+        110,
+        20
+      ],
+      [
+        290,
+        340,
+        110,
+        20
+      ],
+      [
+        130,
+        280,
+        110,
+        20
+      ],
+      [
+        290,
+        220,
+        110,
+        20
+      ],
+      [
+        130,
+        160,
+        110,
+        20
+      ]
+    ],
+    "key": [
+      150,
+      130
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 01 [01:58] Some footage of this wing is missing. This is normal. Continue.",
+    "scroll_pos": [
+      150,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 500,
+        "y": 446,
+        "w": 40
+      }
+    ]
+  },
+  {
+    "chapter": "west_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        50,
+        400,
+        90,
+        20
+      ],
+      [
+        170,
+        345,
+        90,
+        20
+      ],
+      [
+        290,
+        290,
+        90,
+        20
+      ],
+      [
+        410,
+        235,
+        180,
+        20
+      ],
+      [
+        340,
+        390,
+        70,
+        20
+      ],
+      [
+        510,
+        380,
+        70,
+        20
+      ]
+    ],
+    "key": [
+      480,
+      205
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 300,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.0,
+        "range": [
+          260,
+          600
+        ]
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 01 [02:41] A figure has entered frame. It is DESIGNATION 01. It has always been here. Do not greet it.",
+    "scroll_pos": [
+      70,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 650,
+        "y": 446,
+        "w": 36
+      }
+    ]
+  },
+  {
+    "chapter": "west_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        160,
+        350,
+        480,
+        20
+      ],
+      [
+        280,
+        250,
+        240,
+        20
+      ]
+    ],
+    "key": [
+      380,
+      220
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 01 [03:30] The ceiling in the east passage was measured incorrectly on purpose. Duck.",
+    "scroll_pos": [
+      200,
+      440
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 330,
+        "y": 446,
+        "w": 50
+      },
+      {
+        "kind": "spikes",
+        "x": 670,
+        "y": 446,
+        "w": 36
+      }
+    ]
+  },
+  {
+    "chapter": "west_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        630,
+        400,
+        70,
+        20
+      ],
+      [
+        520,
+        345,
+        70,
+        20
+      ],
+      [
+        300,
+        235,
+        70,
+        20
+      ],
+      [
+        190,
+        180,
+        70,
+        20
+      ],
+      [
+        70,
+        125,
+        90,
+        20
+      ]
+    ],
+    "key": [
+      100,
+      95
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [],
+    "player_start": [
+      740,
+      400
+    ],
+    "scroll": "TAPE 01 [04:12] Some of the floor was removed during a previous intake. It was not replaced.",
+    "scroll_pos": [
+      650,
+      380
+    ],
+    "pits": [
+      [
+        90,
+        540
+      ]
+    ],
+    "crumbles": [
+      [
+        410,
+        290,
+        70,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "west_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        300,
+        400,
+        90,
+        20
+      ],
+      [
+        420,
+        340,
+        90,
+        20
+      ],
+      [
+        420,
+        220,
+        90,
+        20
+      ],
+      [
+        300,
+        160,
+        90,
+        20
+      ],
+      [
+        420,
+        100,
+        120,
+        20
+      ]
+    ],
+    "key": [
+      470,
+      70
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 560,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.0,
+        "range": [
+          545,
+          690
+        ]
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 01 [05:03] DESIGNATION 01 will not deviate from its route. You are permitted to.",
+    "scroll_pos": [
+      320,
+      380
+    ],
+    "crumbles": [
+      [
+        300,
+        280,
+        90,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "west_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        60,
+        400,
+        90,
+        20
+      ],
+      [
+        180,
+        340,
+        90,
+        20
+      ],
+      [
+        420,
+        220,
+        240,
+        20
+      ],
+      [
+        700,
+        300,
+        80,
+        20
+      ]
+    ],
+    "key": [
+      520,
+      190
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 440,
+        "y": 186,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 0.9,
+        "range": [
+          420,
+          560
+        ]
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 01 [05:47] Orientation is complete. Tape 02 introduces personnel. Do not skip ahead.",
+    "scroll_pos": [
+      80,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 650,
+        "y": 446,
+        "w": 36
+      }
+    ],
+    "crumbles": [
+      [
+        300,
+        280,
+        90,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "west_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        300,
+        400,
+        200,
+        20
+      ]
+    ],
+    "key": [
+      380,
+      340
+    ],
+    "door": [
+      40,
+      420,
+      50,
+      40
+    ],
+    "player_start": [
+      700,
+      400
+    ],
+    "scroll": "TAPE 01 [07:10] ANOMALY: UNLISTED. This entity has not been assigned a designation. It appears only in doorways. We do not know where it goes when it is not in one. When a door begins to glow, do not be in front of it.",
+    "scroll_pos": [
+      730,
+      400
+    ],
+    "monsters": [
+      {
+        "kind": "doorstalker",
+        "x": 0,
+        "y": 0,
+        "telegraph": 42,
+        "manifest": 60,
+        "speed": 5.0,
+        "cooldown": 35
+      }
+    ],
+    "boss": "boss",
+    "boss_intro": true,
+    "boss_doors": [
+      [
+        60,
+        320
+      ],
+      [
+        377,
+        320
+      ],
+      [
+        690,
+        320
+      ]
+    ],
+    "boss_lore": [
+      [
+        "RECOVERED LOG -- INTAKE",
+        "Entity first logged in a stairwell doorway. No one was found nearby. The door had not been opened from either side."
+      ],
+      [
+        "REVIEW NOTE",
+        "We stopped assigning it a number after the third subject who saw it stopped answering to their own name."
+      ]
     ]
   },
   {
@@ -108,10 +703,846 @@
       40,
       400
     ],
-    "scroll": "Something loose walks the halls ahead - it keeps to a pattern...",
+    "scroll": "TAPE 02 [04:40] This is DESIGNATION 01. It walks the same eleven steps it has always walked. Do not interrupt its count.",
     "scroll_pos": [
       270,
       350
+    ]
+  },
+  {
+    "chapter": "old_hallways",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        200,
+        390,
+        100,
+        20
+      ],
+      [
+        520,
+        390,
+        100,
+        20
+      ]
+    ],
+    "key": [
+      720,
+      430
+    ],
+    "door": [
+      20,
+      380,
+      50,
+      80
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 180,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 2.0,
+        "range": [
+          150,
+          420
+        ]
+      },
+      {
+        "kind": "patroller",
+        "x": 520,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 2.6,
+        "range": [
+          480,
+          700
+        ]
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 02 [05:22] More than one DESIGNATION 01 has been logged in this hallway. They do not acknowledge each other. Neither should you.",
+    "scroll_pos": [
+      100,
+      440
+    ],
+    "crumbles": [
+      [
+        350,
+        330,
+        120,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "old_hallways",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        80,
+        400,
+        90,
+        20
+      ],
+      [
+        190,
+        340,
+        90,
+        20
+      ],
+      [
+        300,
+        290,
+        320,
+        20
+      ],
+      [
+        660,
+        230,
+        110,
+        20
+      ]
+    ],
+    "key": [
+      700,
+      200
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 350,
+        "y": 256,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 2.2,
+        "range": [
+          300,
+          586
+        ]
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 02 [06:10] DESIGNATION 01 has been observed on elevated surfaces. The floor was never guaranteed to be safer.",
+    "scroll_pos": [
+      100,
+      380
+    ],
+    "pits": [
+      [
+        130,
+        110
+      ]
+    ]
+  },
+  {
+    "chapter": "old_hallways",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        250,
+        340,
+        150,
+        20
+      ],
+      [
+        500,
+        260,
+        150,
+        20
+      ]
+    ],
+    "key": [
+      680,
+      220
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "flyer",
+        "x": 300,
+        "y": 250,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.6,
+        "range": [
+          220,
+          600
+        ],
+        "bob_amplitude": 40,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 02 [09:03] DESIGNATION 02 is a disturbance in the signal shaped like a person. It rises and falls with the interference. Cross during a clean frame.",
+    "scroll_pos": [
+      270,
+      300
+    ]
+  },
+  {
+    "chapter": "old_hallways",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        230,
+        300,
+        100,
+        20
+      ],
+      [
+        470,
+        300,
+        100,
+        20
+      ]
+    ],
+    "key": [
+      730,
+      430
+    ],
+    "door": [
+      20,
+      380,
+      50,
+      80
+    ],
+    "monsters": [
+      {
+        "kind": "flyer",
+        "x": 300,
+        "y": 380,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.8,
+        "range": [
+          200,
+          560
+        ],
+        "bob_amplitude": 40,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 02 [09:51] DESIGNATION 02 will occasionally drop to floor level. Do not be under it when the signal breaks.",
+    "scroll_pos": [
+      90,
+      440
+    ],
+    "pits": [
+      [
+        380,
+        70
+      ]
+    ]
+  },
+  {
+    "chapter": "old_hallways",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        120,
+        400,
+        100,
+        20
+      ],
+      [
+        600,
+        400,
+        100,
+        20
+      ],
+      [
+        660,
+        340,
+        110,
+        20
+      ]
+    ],
+    "key": [
+      740,
+      430
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "flyer",
+        "x": 250,
+        "y": 370,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.5,
+        "range": [
+          150,
+          400
+        ],
+        "bob_amplitude": 45,
+        "bob_speed": 0.04
+      },
+      {
+        "kind": "flyer",
+        "x": 450,
+        "y": 350,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.9,
+        "range": [
+          400,
+          650
+        ],
+        "bob_amplitude": 50,
+        "bob_speed": 0.06
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 02 [10:36] Two instances of DESIGNATION 02 have been recorded moving out of sync with each other. This has not been explained.",
+    "scroll_pos": [
+      140,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 520,
+        "y": 446,
+        "w": 36
+      }
+    ]
+  },
+  {
+    "chapter": "old_hallways",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        180,
+        380,
+        110,
+        20
+      ],
+      [
+        500,
+        380,
+        110,
+        20
+      ]
+    ],
+    "key": [
+      730,
+      430
+    ],
+    "door": [
+      20,
+      380,
+      50,
+      80
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 300,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 2.2,
+        "range": [
+          250,
+          600
+        ]
+      },
+      {
+        "kind": "flyer",
+        "x": 300,
+        "y": 250,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.4,
+        "range": [
+          220,
+          600
+        ],
+        "bob_amplitude": 35,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 02 [11:20] DESIGNATION 01 and DESIGNATION 02 have been observed sharing a corridor. Neither is aware of the other. You should be aware of both.",
+    "scroll_pos": [
+      90,
+      440
+    ],
+    "crumbles": [
+      [
+        340,
+        320,
+        110,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "old_hallways",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        120,
+        400,
+        100,
+        20
+      ],
+      [
+        400,
+        280,
+        160,
+        20
+      ],
+      [
+        600,
+        340,
+        100,
+        20
+      ]
+    ],
+    "key": [
+      470,
+      250
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 320,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.3,
+        "range": [
+          300,
+          600
+        ]
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 02 [12:08] The dust in this hallway was tested. The results were not released to new intake.",
+    "scroll_pos": [
+      140,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 650,
+        "y": 446,
+        "w": 36
+      }
+    ],
+    "crumbles": [
+      [
+        260,
+        340,
+        100,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "old_hallways",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        100,
+        400,
+        90,
+        20
+      ],
+      [
+        230,
+        340,
+        90,
+        20
+      ],
+      [
+        370,
+        340,
+        90,
+        20
+      ],
+      [
+        120,
+        250,
+        320,
+        20
+      ]
+    ],
+    "key": [
+      560,
+      260
+    ],
+    "door": [
+      200,
+      210,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 240,
+        "y": 216,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 2.0,
+        "range": [
+          120,
+          406
+        ]
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 02 [12:59] Some doors here are monitored from the other side. This is for your protection. We will not say whose.",
+    "scroll_pos": [
+      120,
+      380
+    ],
+    "pits": [
+      [
+        300,
+        120
+      ]
+    ],
+    "crumbles": [
+      [
+        500,
+        290,
+        90,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "old_hallways",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        100,
+        400,
+        120,
+        20
+      ],
+      [
+        420,
+        280,
+        140,
+        20
+      ],
+      [
+        600,
+        340,
+        120,
+        20
+      ],
+      [
+        660,
+        230,
+        110,
+        20
+      ]
+    ],
+    "key": [
+      700,
+      200
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 360,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 2.0,
+        "range": [
+          300,
+          560
+        ]
+      },
+      {
+        "kind": "patroller",
+        "x": 430,
+        "y": 246,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.5,
+        "range": [
+          420,
+          526
+        ]
+      },
+      {
+        "kind": "flyer",
+        "x": 300,
+        "y": 190,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.3,
+        "range": [
+          200,
+          640
+        ],
+        "bob_amplitude": 30,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 02 [13:44] Intake is complete. Your file has been updated. Tape 03 was recorded below ground level.",
+    "scroll_pos": [
+      120,
+      380
+    ],
+    "crumbles": [
+      [
+        260,
+        340,
+        120,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "old_hallways",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        80,
+        400,
+        130,
+        20
+      ],
+      [
+        260,
+        340,
+        110,
+        20
+      ],
+      [
+        430,
+        280,
+        110,
+        20
+      ],
+      [
+        560,
+        220,
+        200,
+        20
+      ]
+    ],
+    "key": [
+      10,
+      10
+    ],
+    "door": [
+      40,
+      420,
+      50,
+      40
+    ],
+    "player_start": [
+      700,
+      400
+    ],
+    "scroll": "TAPE 02 [15:40] ANOMALY: THE PROJECTOR. It watches one row of this hall and, without warning at first, sends everything in that row back out as static. Do not approach while its screen is lit.",
+    "scroll_pos": [
+      730,
+      400
+    ],
+    "monsters": [
+      {
+        "kind": "beamer",
+        "x": 610,
+        "y": 164,
+        "size": 56,
+        "beam_telegraph": 52,
+        "beam_time": 34,
+        "beam_cooldown": 60
+      }
+    ],
+    "boss": "boss",
+    "boss_intro": true,
+    "charge_item": [
+      100,
+      375
+    ],
+    "key_from_boss": true,
+    "boss_lore": [
+      [
+        "RECOVERED LOG",
+        "Before it was called the Projector, it was a television left running in an empty room, on a loop no one here made."
+      ],
+      [
+        "REVIEW NOTE",
+        "It does not record what it sees. It only shows what is already there, slightly late."
+      ]
     ]
   },
   {
@@ -166,10 +1597,3211 @@
       40,
       400
     ],
-    "scroll": "You will see him before you understand what you are seeing...",
+    "scroll": "TAPE 03 [15:21] DESIGNATION 03 presents as dormant. It is not sleeping. It is waiting for a reason. Do not give it one.",
     "scroll_pos": [
       220,
       350
+    ]
+  },
+  {
+    "chapter": "the_crypts",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        140,
+        390,
+        120,
+        20
+      ],
+      [
+        310,
+        330,
+        120,
+        20
+      ],
+      [
+        480,
+        270,
+        120,
+        20
+      ],
+      [
+        640,
+        210,
+        150,
+        20
+      ]
+    ],
+    "key": [
+      700,
+      170
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "shooter",
+        "x": 420,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 100,
+        "align_tolerance": 40,
+        "projectile_speed": 5
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 03 [19:48] DESIGNATION 04 does not move. It records. It transmits what it records back to us. Stay out of frame.",
+    "scroll_pos": [
+      90,
+      430
+    ]
+  },
+  {
+    "chapter": "the_crypts",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        120,
+        400,
+        90,
+        20
+      ],
+      [
+        380,
+        290,
+        90,
+        20
+      ],
+      [
+        520,
+        340,
+        100,
+        20
+      ],
+      [
+        650,
+        290,
+        130,
+        20
+      ]
+    ],
+    "key": [
+      700,
+      260
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 580,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 130,
+        "sleep_radius": 240
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 03 [21:02] DESIGNATION 03 responds to proximity, not to sound, not to light. Distance is the only known deterrent.",
+    "scroll_pos": [
+      140,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 300,
+        "y": 446,
+        "w": 40
+      }
+    ],
+    "crumbles": [
+      [
+        250,
+        340,
+        90,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "the_crypts",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ]
+    ],
+    "key": [
+      730,
+      430
+    ],
+    "door": [
+      20,
+      380,
+      50,
+      80
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 560,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 200,
+        "sleep_radius": 300
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 03 [21:55] DESIGNATION 03 moves slower than an average intake subject. This has been confirmed. Do not confirm it personally.",
+    "scroll_pos": [
+      100,
+      440
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 150,
+        "y": 446,
+        "w": 36
+      }
+    ]
+  },
+  {
+    "chapter": "the_crypts",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        120,
+        400,
+        90,
+        20
+      ],
+      [
+        240,
+        340,
+        90,
+        20
+      ],
+      [
+        360,
+        280,
+        110,
+        20
+      ],
+      [
+        520,
+        340,
+        100,
+        20
+      ],
+      [
+        640,
+        290,
+        140,
+        20
+      ]
+    ],
+    "key": [
+      700,
+      260
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "shooter",
+        "x": 740,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 110,
+        "align_tolerance": 40,
+        "projectile_speed": 4.5
+      },
+      {
+        "kind": "shooter",
+        "x": 400,
+        "y": 248,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 120,
+        "align_tolerance": 40,
+        "projectile_speed": 4.5
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 03 [22:40] Two units of DESIGNATION 04 have overlapping fields of view. There is no angle that is watched by neither.",
+    "scroll_pos": [
+      140,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "pulse",
+        "x": 250,
+        "y": 326,
+        "w": 60,
+        "period": 140,
+        "on": 50,
+        "offset": 0
+      }
+    ]
+  },
+  {
+    "chapter": "the_crypts",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        100,
+        400,
+        100,
+        20
+      ],
+      [
+        360,
+        300,
+        300,
+        20
+      ],
+      [
+        690,
+        340,
+        90,
+        20
+      ]
+    ],
+    "key": [
+      720,
+      310
+    ],
+    "door": [
+      20,
+      380,
+      50,
+      80
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 400,
+        "y": 266,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.9,
+        "range": [
+          360,
+          626
+        ]
+      },
+      {
+        "kind": "chaser",
+        "x": 650,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 120,
+        "sleep_radius": 240
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 03 [23:31] DESIGNATION 01 is not aware DESIGNATION 03 has been activated in this sector. DESIGNATION 03 does not care either way.",
+    "scroll_pos": [
+      120,
+      380
+    ],
+    "crumbles": [
+      [
+        230,
+        340,
+        100,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "the_crypts",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        160,
+        380,
+        110,
+        20
+      ],
+      [
+        330,
+        320,
+        110,
+        20
+      ],
+      [
+        500,
+        380,
+        110,
+        20
+      ]
+    ],
+    "key": [
+      660,
+      430
+    ],
+    "door": [
+      20,
+      380,
+      50,
+      80
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 300,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 2.2,
+        "range": [
+          250,
+          560
+        ]
+      },
+      {
+        "kind": "shooter",
+        "x": 750,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 120,
+        "align_tolerance": 40,
+        "projectile_speed": 4.5
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 03 [24:15] A DESIGNATION 01 unit and a DESIGNATION 04 unit have been placed in the same corridor deliberately. Study the DESIGNATION 01's timing. The 04 cannot be reasoned with.",
+    "scroll_pos": [
+      100,
+      440
+    ]
+  },
+  {
+    "chapter": "the_crypts",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        90,
+        400,
+        100,
+        20
+      ],
+      [
+        230,
+        350,
+        100,
+        20
+      ],
+      [
+        380,
+        300,
+        120,
+        20
+      ],
+      [
+        560,
+        350,
+        100,
+        20
+      ],
+      [
+        640,
+        290,
+        80,
+        20
+      ],
+      [
+        300,
+        220,
+        260,
+        20
+      ]
+    ],
+    "key": [
+      400,
+      190
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 480,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 150,
+        "sleep_radius": 205
+      },
+      {
+        "kind": "shooter",
+        "x": 260,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 130,
+        "align_tolerance": 40,
+        "projectile_speed": 4.5
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 03 [25:09] Once DESIGNATION 03 activates, DESIGNATION 04 will not pause its recording to let it pass. Elevated surfaces are recommended for both.",
+    "scroll_pos": [
+      110,
+      380
+    ]
+  },
+  {
+    "chapter": "the_crypts",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        100,
+        400,
+        90,
+        20
+      ],
+      [
+        220,
+        340,
+        90,
+        20
+      ],
+      [
+        340,
+        270,
+        120,
+        20
+      ],
+      [
+        520,
+        340,
+        90,
+        20
+      ],
+      [
+        640,
+        400,
+        90,
+        20
+      ],
+      [
+        400,
+        190,
+        120,
+        20
+      ]
+    ],
+    "key": [
+      430,
+      160
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 300,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 100,
+        "sleep_radius": 220
+      },
+      {
+        "kind": "chaser",
+        "x": 560,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 100,
+        "sleep_radius": 220
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 03 [26:20] DESIGNATION 03 was logged under a name before it was assigned a number. The name has been removed from this file. Please do not ask for it.",
+    "scroll_pos": [
+      120,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 560,
+        "y": 446,
+        "w": 36
+      },
+      {
+        "kind": "pulse",
+        "x": 370,
+        "y": 256,
+        "w": 50,
+        "period": 150,
+        "on": 50,
+        "offset": 30
+      }
+    ]
+  },
+  {
+    "chapter": "the_crypts",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        90,
+        400,
+        100,
+        20
+      ],
+      [
+        220,
+        350,
+        100,
+        20
+      ],
+      [
+        360,
+        300,
+        110,
+        20
+      ],
+      [
+        510,
+        250,
+        110,
+        20
+      ],
+      [
+        650,
+        300,
+        100,
+        20
+      ],
+      [
+        700,
+        200,
+        90,
+        20
+      ]
+    ],
+    "key": [
+      720,
+      170
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 560,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 120,
+        "sleep_radius": 240
+      },
+      {
+        "kind": "shooter",
+        "x": 300,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 120,
+        "align_tolerance": 40,
+        "projectile_speed": 4.5
+      },
+      {
+        "kind": "flyer",
+        "x": 400,
+        "y": 200,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.3,
+        "range": [
+          300,
+          620
+        ],
+        "bob_amplitude": 25,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 03 [27:02] (a second voice, underneath) -- they didn't take me. I walked down here myself. I want that on the record.",
+    "scroll_pos": [
+      110,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "pulse",
+        "x": 380,
+        "y": 286,
+        "w": 50,
+        "period": 150,
+        "on": 55,
+        "offset": 40
+      }
+    ]
+  },
+  {
+    "chapter": "the_crypts",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        120,
+        380,
+        140,
+        20
+      ],
+      [
+        540,
+        380,
+        140,
+        20
+      ]
+    ],
+    "key": [
+      10,
+      10
+    ],
+    "door": [
+      40,
+      420,
+      50,
+      40
+    ],
+    "player_start": [
+      700,
+      400
+    ],
+    "scroll": "TAPE 03 [29:40] ANOMALY: THE CALLER. It does not act directly. It waits, and it calls something else in. What answers does not last long, but it does not need to.",
+    "scroll_pos": [
+      730,
+      400
+    ],
+    "monsters": [
+      {
+        "kind": "summoner",
+        "x": 380,
+        "y": 404,
+        "size": 52,
+        "summon_interval": 150,
+        "minion_life": 170,
+        "minion_speed": 1.3
+      }
+    ],
+    "boss": "boss",
+    "boss_intro": true,
+    "charge_item": [
+      150,
+      355
+    ],
+    "key_from_boss": true,
+    "boss_lore": [
+      [
+        "RECOVERED LOG",
+        "It was found with its arms raised, before anyone heard it make a sound. We do not know what it is calling. Only that something answers."
+      ],
+      [
+        "REVIEW NOTE",
+        "What it calls in does not outlast it by much. That has not made it easier to be near."
+      ]
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        100,
+        400,
+        110,
+        20
+      ],
+      [
+        100,
+        280,
+        110,
+        20
+      ],
+      [
+        260,
+        220,
+        110,
+        20
+      ],
+      [
+        420,
+        170,
+        130,
+        20
+      ],
+      [
+        600,
+        240,
+        110,
+        20
+      ]
+    ],
+    "key": [
+      470,
+      140
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 380,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.6,
+        "range": [
+          330,
+          600
+        ]
+      },
+      {
+        "kind": "flyer",
+        "x": 330,
+        "y": 110,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.3,
+        "range": [
+          250,
+          600
+        ],
+        "bob_amplitude": 25,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 04 [22:47] You are now below the level shown on your intake map. Please disregard your intake map.",
+    "scroll_pos": [
+      120,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 655,
+        "y": 446,
+        "w": 36
+      }
+    ],
+    "crumbles": [
+      [
+        260,
+        340,
+        110,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        90,
+        400,
+        100,
+        20
+      ],
+      [
+        220,
+        350,
+        100,
+        20
+      ],
+      [
+        360,
+        300,
+        120,
+        20
+      ],
+      [
+        520,
+        350,
+        100,
+        20
+      ],
+      [
+        640,
+        300,
+        140,
+        20
+      ],
+      [
+        300,
+        210,
+        240,
+        20
+      ],
+      [
+        600,
+        190,
+        120,
+        20
+      ]
+    ],
+    "key": [
+      660,
+      160
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 560,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 120,
+        "sleep_radius": 240
+      },
+      {
+        "kind": "shooter",
+        "x": 180,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 130,
+        "align_tolerance": 40,
+        "projectile_speed": 4.0
+      },
+      {
+        "kind": "patroller",
+        "x": 310,
+        "y": 176,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.5,
+        "range": [
+          300,
+          506
+        ]
+      },
+      {
+        "kind": "flyer",
+        "x": 420,
+        "y": 130,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.3,
+        "range": [
+          300,
+          620
+        ],
+        "bob_amplitude": 25,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 04 [22:12] All four Designations have been logged active in this sector simultaneously. This has never happened before. It is happening now.",
+    "scroll_pos": [
+      110,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 400,
+        "y": 446,
+        "w": 50
+      }
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        620,
+        400,
+        110,
+        20
+      ],
+      [
+        340,
+        280,
+        110,
+        20
+      ],
+      [
+        200,
+        220,
+        110,
+        20
+      ],
+      [
+        60,
+        160,
+        140,
+        20
+      ]
+    ],
+    "key": [
+      90,
+      130
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "flyer",
+        "x": 300,
+        "y": 120,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.2,
+        "range": [
+          150,
+          560
+        ],
+        "bob_amplitude": 20,
+        "bob_speed": 0.04
+      }
+    ],
+    "player_start": [
+      740,
+      400
+    ],
+    "scroll": "TAPE 04 [22:50] The lamp in this room flickers on a fixed interval. The interval matches something. We have not said what.",
+    "scroll_pos": [
+      640,
+      380
+    ],
+    "crumbles": [
+      [
+        480,
+        340,
+        110,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        90,
+        400,
+        90,
+        20
+      ],
+      [
+        190,
+        340,
+        90,
+        20
+      ],
+      [
+        300,
+        280,
+        90,
+        20
+      ],
+      [
+        410,
+        220,
+        180,
+        20
+      ],
+      [
+        610,
+        280,
+        90,
+        20
+      ],
+      [
+        720,
+        340,
+        60,
+        20
+      ]
+    ],
+    "key": [
+      480,
+      190
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "shooter",
+        "x": 300,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 120,
+        "align_tolerance": 40,
+        "projectile_speed": 4.5
+      },
+      {
+        "kind": "shooter",
+        "x": 640,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 120,
+        "align_tolerance": 40,
+        "projectile_speed": 4.5
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 04 [21:38] Recessed alcoves along this corridor are outside both units' recorded range. Use them. Do not linger in them.",
+    "scroll_pos": [
+      110,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "pulse",
+        "x": 520,
+        "y": 206,
+        "w": 50,
+        "period": 130,
+        "on": 55,
+        "offset": 20
+      }
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        100,
+        400,
+        100,
+        20
+      ],
+      [
+        240,
+        340,
+        100,
+        20
+      ],
+      [
+        380,
+        290,
+        110,
+        20
+      ],
+      [
+        530,
+        340,
+        100,
+        20
+      ],
+      [
+        660,
+        280,
+        120,
+        20
+      ]
+    ],
+    "key": [
+      700,
+      250
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "shooter",
+        "x": 640,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 120,
+        "align_tolerance": 40,
+        "projectile_speed": 4.5
+      },
+      {
+        "kind": "flyer",
+        "x": 300,
+        "y": 230,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.6,
+        "range": [
+          200,
+          600
+        ],
+        "bob_amplitude": 35,
+        "bob_speed": 0.06
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 04 [23:01] DESIGNATION 02 and DESIGNATION 04 have begun operating together. One moves. One watches. We did not program this.",
+    "scroll_pos": [
+      120,
+      380
+    ],
+    "pits": [
+      [
+        180,
+        90
+      ]
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ]
+    ],
+    "key": [
+      720,
+      430
+    ],
+    "door": [
+      20,
+      380,
+      50,
+      80
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 480,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.3,
+        "detect_radius": 120,
+        "sleep_radius": 300
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 04 [19:59] [TIMECODE ERROR] -- someone is narrating faster now. I don't think there's much tape left. I don't think that's about the tape.",
+    "scroll_pos": [
+      100,
+      440
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        120,
+        400,
+        110,
+        20
+      ],
+      [
+        280,
+        340,
+        110,
+        20
+      ],
+      [
+        600,
+        340,
+        110,
+        20
+      ],
+      [
+        700,
+        270,
+        80,
+        20
+      ]
+    ],
+    "key": [
+      720,
+      240
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 260,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.4,
+        "range": [
+          220,
+          560
+        ]
+      },
+      {
+        "kind": "flyer",
+        "x": 330,
+        "y": 215,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.3,
+        "range": [
+          150,
+          700
+        ],
+        "bob_amplitude": 28,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 04 [23:44] If the corridor below you is silent, that is not a good sign. DESIGNATION 02 does not make noise until it is close.",
+    "scroll_pos": [
+      140,
+      380
+    ],
+    "crumbles": [
+      [
+        440,
+        290,
+        110,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        100,
+        400,
+        100,
+        20
+      ],
+      [
+        240,
+        340,
+        100,
+        20
+      ],
+      [
+        380,
+        280,
+        120,
+        20
+      ],
+      [
+        540,
+        340,
+        100,
+        20
+      ],
+      [
+        680,
+        280,
+        100,
+        20
+      ],
+      [
+        240,
+        200,
+        200,
+        20
+      ]
+    ],
+    "key": [
+      300,
+      170
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 560,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 2.1,
+        "range": [
+          450,
+          650
+        ]
+      },
+      {
+        "kind": "chaser",
+        "x": 400,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 110,
+        "sleep_radius": 220
+      },
+      {
+        "kind": "shooter",
+        "x": 180,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 130,
+        "align_tolerance": 40,
+        "projectile_speed": 4.0
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 04 [20:14] The sound underneath this recording is not the building. Please continue as though it is the building.",
+    "scroll_pos": [
+      120,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "pulse",
+        "x": 260,
+        "y": 326,
+        "w": 50,
+        "period": 130,
+        "on": 55,
+        "offset": 0
+      }
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        640,
+        400,
+        80,
+        20
+      ],
+      [
+        520,
+        345,
+        80,
+        20
+      ],
+      [
+        400,
+        290,
+        80,
+        20
+      ],
+      [
+        280,
+        235,
+        80,
+        20
+      ],
+      [
+        160,
+        180,
+        80,
+        20
+      ],
+      [
+        40,
+        125,
+        100,
+        20
+      ]
+    ],
+    "key": [
+      70,
+      95
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "flyer",
+        "x": 300,
+        "y": 90,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.0,
+        "range": [
+          120,
+          600
+        ],
+        "bob_amplitude": 20,
+        "bob_speed": 0.04
+      }
+    ],
+    "player_start": [
+      740,
+      400
+    ],
+    "scroll": "TAPE 04 [24:03] [TIMECODE ERROR] You flinch at footsteps I cannot hear on this side of the tape. A door opens that was not on the floor plan.",
+    "scroll_pos": [
+      660,
+      380
+    ],
+    "pits": [
+      [
+        80,
+        560
+      ]
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        90,
+        400,
+        90,
+        20
+      ],
+      [
+        210,
+        350,
+        90,
+        20
+      ],
+      [
+        340,
+        300,
+        100,
+        20
+      ],
+      [
+        480,
+        250,
+        110,
+        20
+      ],
+      [
+        620,
+        300,
+        90,
+        20
+      ],
+      [
+        700,
+        220,
+        80,
+        20
+      ],
+      [
+        330,
+        160,
+        200,
+        20
+      ]
+    ],
+    "key": [
+      420,
+      130
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 520,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 100,
+        "sleep_radius": 205
+      },
+      {
+        "kind": "shooter",
+        "x": 700,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 150,
+        "align_tolerance": 40,
+        "projectile_speed": 3.8
+      },
+      {
+        "kind": "patroller",
+        "x": 340,
+        "y": 126,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.4,
+        "range": [
+          330,
+          496
+        ]
+      },
+      {
+        "kind": "flyer",
+        "x": 420,
+        "y": 100,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.1,
+        "range": [
+          300,
+          620
+        ],
+        "bob_amplitude": 20,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 04 [19:33] There is no marked exit from this floor. There is only the next room. This has been true the entire time.",
+    "scroll_pos": [
+      110,
+      380
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        90,
+        400,
+        100,
+        20
+      ],
+      [
+        220,
+        350,
+        100,
+        20
+      ],
+      [
+        350,
+        300,
+        100,
+        20
+      ],
+      [
+        610,
+        200,
+        100,
+        20
+      ],
+      [
+        300,
+        140,
+        230,
+        20
+      ]
+    ],
+    "key": [
+      360,
+      110
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 240,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 100,
+        "sleep_radius": 205
+      },
+      {
+        "kind": "patroller",
+        "x": 450,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 2.2,
+        "range": [
+          380,
+          640
+        ]
+      },
+      {
+        "kind": "patroller",
+        "x": 300,
+        "y": 106,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.5,
+        "range": [
+          300,
+          496
+        ]
+      },
+      {
+        "kind": "shooter",
+        "x": 700,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 130,
+        "align_tolerance": 40,
+        "projectile_speed": 4.0
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 04 [24:59] Unlisted Floor documentation is complete. Do not file a report. Tape 05 is the last approved recording.",
+    "scroll_pos": [
+      110,
+      380
+    ],
+    "crumbles": [
+      [
+        480,
+        250,
+        100,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "the_buried_wing",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        80,
+        390,
+        110,
+        20
+      ],
+      [
+        80,
+        320,
+        110,
+        20
+      ],
+      [
+        160,
+        260,
+        160,
+        20
+      ]
+    ],
+    "key": [
+      10,
+      10
+    ],
+    "door": [
+      700,
+      420,
+      50,
+      40
+    ],
+    "player_start": [
+      700,
+      400
+    ],
+    "scroll": "TAPE 04 [26:50] ANOMALY: THE GUARDIAN. Plated. Slow. It does not react to being approached from directly above. We have no explanation for why that is the one place it does not defend.",
+    "scroll_pos": [
+      730,
+      400
+    ],
+    "monsters": [
+      {
+        "kind": "guardian",
+        "x": 440,
+        "y": 406,
+        "size": 54,
+        "speed": 1.4,
+        "range": [
+          340,
+          560
+        ]
+      }
+    ],
+    "boss": "boss",
+    "boss_intro": true,
+    "boss_lore": [
+      [
+        "RECOVERED LOG",
+        "It has never left this room. It has never reacted to anyone who approached from above. We do not know why."
+      ],
+      [
+        "REVIEW NOTE",
+        "Early staff assumed it was guarding something. The room has always been empty."
+      ]
+    ],
+    "key_from_boss": true
+  },
+  {
+    "chapter": "the_reckoning",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        640,
+        400,
+        100,
+        20
+      ],
+      [
+        360,
+        290,
+        100,
+        20
+      ],
+      [
+        220,
+        240,
+        100,
+        20
+      ],
+      [
+        80,
+        190,
+        110,
+        20
+      ]
+    ],
+    "key": [
+      110,
+      160
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 320,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.2,
+        "range": [
+          300,
+          560
+        ]
+      }
+    ],
+    "player_start": [
+      740,
+      400
+    ],
+    "scroll": "TAPE 05 [--:--] Please remain calm. Please remain exactly where you are. We are almost finished here.",
+    "scroll_pos": [
+      660,
+      380
+    ],
+    "pits": [
+      [
+        110,
+        80
+      ]
+    ],
+    "crumbles": [
+      [
+        500,
+        340,
+        100,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "the_reckoning",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        100,
+        400,
+        100,
+        20
+      ],
+      [
+        260,
+        340,
+        100,
+        20
+      ],
+      [
+        120,
+        280,
+        100,
+        20
+      ],
+      [
+        440,
+        170,
+        200,
+        20
+      ]
+    ],
+    "key": [
+      560,
+      140
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "patroller",
+        "x": 350,
+        "y": 426,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.5,
+        "range": [
+          330,
+          600
+        ]
+      },
+      {
+        "kind": "flyer",
+        "x": 350,
+        "y": 105,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.2,
+        "range": [
+          250,
+          650
+        ],
+        "bob_amplitude": 20,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 05 [--:--] [TIMECODE ERROR] The walls hold on to things the residents cannot. That was never meant as a threat. It was meant kindly.",
+    "scroll_pos": [
+      120,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 660,
+        "y": 446,
+        "w": 40
+      }
+    ],
+    "crumbles": [
+      [
+        280,
+        220,
+        100,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "the_reckoning",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        90,
+        400,
+        90,
+        20
+      ],
+      [
+        210,
+        350,
+        90,
+        20
+      ],
+      [
+        340,
+        300,
+        100,
+        20
+      ],
+      [
+        480,
+        250,
+        100,
+        20
+      ],
+      [
+        620,
+        300,
+        90,
+        20
+      ],
+      [
+        340,
+        170,
+        230,
+        20
+      ]
+    ],
+    "key": [
+      420,
+      140
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 560,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 110,
+        "sleep_radius": 205
+      },
+      {
+        "kind": "shooter",
+        "x": 200,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 130,
+        "align_tolerance": 40,
+        "projectile_speed": 4.0
+      },
+      {
+        "kind": "patroller",
+        "x": 345,
+        "y": 136,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.4,
+        "range": [
+          340,
+          536
+        ]
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 05 [--:--] Designations 01 through 04 were never four separate recordings. We edited them to look that way. We are sorry.",
+    "scroll_pos": [
+      110,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "pulse",
+        "x": 500,
+        "y": 236,
+        "w": 50,
+        "period": 120,
+        "on": 55,
+        "offset": 0
+      }
+    ]
+  },
+  {
+    "chapter": "the_reckoning",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        300,
+        400,
+        90,
+        20
+      ],
+      [
+        420,
+        340,
+        90,
+        20
+      ],
+      [
+        300,
+        280,
+        90,
+        20
+      ],
+      [
+        300,
+        160,
+        90,
+        20
+      ],
+      [
+        420,
+        100,
+        120,
+        20
+      ]
+    ],
+    "key": [
+      470,
+      70
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "flyer",
+        "x": 250,
+        "y": 60,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.0,
+        "range": [
+          150,
+          650
+        ],
+        "bob_amplitude": 15,
+        "bob_speed": 0.04
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 05 [--:--] [TIMECODE ERROR] I am not the only one in this building holding on past the point I should have stopped.",
+    "scroll_pos": [
+      320,
+      380
+    ],
+    "crumbles": [
+      [
+        420,
+        220,
+        90,
+        20
+      ]
+    ]
+  },
+  {
+    "chapter": "the_reckoning",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        610,
+        400,
+        100,
+        20
+      ],
+      [
+        480,
+        350,
+        100,
+        20
+      ],
+      [
+        320,
+        300,
+        120,
+        20
+      ],
+      [
+        180,
+        350,
+        100,
+        20
+      ],
+      [
+        20,
+        300,
+        140,
+        20
+      ],
+      [
+        260,
+        210,
+        240,
+        20
+      ],
+      [
+        80,
+        190,
+        120,
+        20
+      ]
+    ],
+    "key": [
+      110,
+      160
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 206,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 120,
+        "sleep_radius": 240
+      },
+      {
+        "kind": "shooter",
+        "x": 588,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 130,
+        "align_tolerance": 40,
+        "projectile_speed": 4.0
+      },
+      {
+        "kind": "patroller",
+        "x": 456,
+        "y": 176,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.5,
+        "range": [
+          260,
+          466
+        ]
+      },
+      {
+        "kind": "flyer",
+        "x": 350,
+        "y": 130,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.3,
+        "range": [
+          150,
+          470
+        ],
+        "bob_amplitude": 25,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      732,
+      400
+    ],
+    "scroll": "TAPE 05 [--:--] Continue. This is the same room as before. It has always been the same room. Continue anyway.",
+    "scroll_pos": [
+      664,
+      380
+    ],
+    "traps": [
+      {
+        "kind": "spikes",
+        "x": 350,
+        "y": 446,
+        "w": 50
+      }
+    ]
+  },
+  {
+    "chapter": "the_reckoning",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        640,
+        400,
+        80,
+        20
+      ],
+      [
+        600,
+        340,
+        80,
+        20
+      ],
+      [
+        520,
+        280,
+        80,
+        20
+      ],
+      [
+        440,
+        220,
+        100,
+        20
+      ],
+      [
+        260,
+        220,
+        160,
+        20
+      ],
+      [
+        60,
+        280,
+        120,
+        20
+      ]
+    ],
+    "key": [
+      90,
+      250
+    ],
+    "door": [
+      470,
+      180,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 360,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 120,
+        "sleep_radius": 205
+      },
+      {
+        "kind": "flyer",
+        "x": 300,
+        "y": 165,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.2,
+        "range": [
+          220,
+          560
+        ],
+        "bob_amplitude": 25,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      740,
+      400
+    ],
+    "scroll": "TAPE 05 [--:--] You keep finding a door. It is never the correct one. We do not know how many more there are.",
+    "scroll_pos": [
+      650,
+      380
+    ]
+  },
+  {
+    "chapter": "the_reckoning",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        120,
+        400,
+        110,
+        20
+      ],
+      [
+        280,
+        340,
+        110,
+        20
+      ],
+      [
+        440,
+        290,
+        110,
+        20
+      ],
+      [
+        600,
+        340,
+        110,
+        20
+      ],
+      [
+        700,
+        270,
+        80,
+        20
+      ]
+    ],
+    "key": [
+      720,
+      240
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "flyer",
+        "x": 250,
+        "y": 230,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.1,
+        "range": [
+          150,
+          450
+        ],
+        "bob_amplitude": 24,
+        "bob_speed": 0.05
+      },
+      {
+        "kind": "flyer",
+        "x": 500,
+        "y": 200,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.2,
+        "range": [
+          400,
+          700
+        ],
+        "bob_amplitude": 22,
+        "bob_speed": 0.06
+      },
+      {
+        "kind": "shooter",
+        "x": 730,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 160,
+        "align_tolerance": 40,
+        "projectile_speed": 3.6
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 05 [--:--] Please slow your breathing to match the sound underneath this tape. It will be easier that way.",
+    "scroll_pos": [
+      140,
+      380
+    ],
+    "pits": [
+      [
+        340,
+        80
+      ]
+    ]
+  },
+  {
+    "chapter": "the_reckoning",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ]
+    ],
+    "key": [
+      200,
+      430
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 560,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 1.4,
+        "detect_radius": 110,
+        "sleep_radius": 190
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 05 [--:--] It is permitted to be tired. Everyone who is waiting for you already knows that, somewhere, in a much quieter room.",
+    "scroll_pos": [
+      100,
+      440
+    ]
+  },
+  {
+    "chapter": "the_reckoning",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        60,
+        400,
+        90,
+        20
+      ],
+      [
+        170,
+        340,
+        90,
+        20
+      ],
+      [
+        280,
+        280,
+        90,
+        20
+      ],
+      [
+        390,
+        190,
+        140,
+        20
+      ],
+      [
+        560,
+        280,
+        90,
+        20
+      ],
+      [
+        670,
+        340,
+        90,
+        20
+      ],
+      [
+        720,
+        400,
+        70,
+        20
+      ]
+    ],
+    "key": [
+      440,
+      160
+    ],
+    "door": [
+      20,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "chaser",
+        "x": 400,
+        "y": 426,
+        "size": 34,
+        "color": [
+          120,
+          40,
+          130
+        ],
+        "speed": 2.2,
+        "detect_radius": 100,
+        "sleep_radius": 200
+      },
+      {
+        "kind": "shooter",
+        "x": 210,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 140,
+        "align_tolerance": 40,
+        "projectile_speed": 4.0
+      },
+      {
+        "kind": "shooter",
+        "x": 640,
+        "y": 428,
+        "size": 32,
+        "color": [
+          90,
+          150,
+          90
+        ],
+        "fire_interval": 140,
+        "align_tolerance": 40,
+        "projectile_speed": 4.0
+      },
+      {
+        "kind": "patroller",
+        "x": 395,
+        "y": 156,
+        "size": 34,
+        "color": [
+          140,
+          60,
+          60
+        ],
+        "speed": 1.3,
+        "range": [
+          390,
+          496
+        ]
+      },
+      {
+        "kind": "flyer",
+        "x": 400,
+        "y": 115,
+        "size": 30,
+        "color": [
+          180,
+          180,
+          220
+        ],
+        "speed": 1.2,
+        "range": [
+          300,
+          520
+        ],
+        "bob_amplitude": 22,
+        "bob_speed": 0.05
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 05 [--:--] [TIMECODE ERROR] Listen. Under the recording. Under everything we have shown you tonight. There is a steady sound. It has been there since Tape 01.",
+    "scroll_pos": [
+      80,
+      380
+    ]
+  },
+  {
+    "chapter": "the_reckoning",
+    "platforms": [
+      [
+        0,
+        460,
+        800,
+        40
+      ],
+      [
+        80,
+        400,
+        120,
+        20
+      ],
+      [
+        240,
+        340,
+        120,
+        20
+      ],
+      [
+        400,
+        280,
+        120,
+        20
+      ],
+      [
+        560,
+        220,
+        120,
+        20
+      ],
+      [
+        420,
+        150,
+        100,
+        20
+      ]
+    ],
+    "key": [
+      450,
+      120
+    ],
+    "door": [
+      730,
+      420,
+      50,
+      40
+    ],
+    "monsters": [
+      {
+        "kind": "warden",
+        "x": 370,
+        "y": 390,
+        "size": 70,
+        "color": [
+          30,
+          26,
+          34
+        ],
+        "range": [
+          100,
+          650
+        ],
+        "phase1_time": 360,
+        "phase1_speed": 1.8,
+        "phase2_fire": 90,
+        "phase2_speed": 4.0,
+        "phase3_speed": 2.8,
+        "align_tolerance": 46
+      }
+    ],
+    "player_start": [
+      40,
+      400
+    ],
+    "scroll": "TAPE 05 [--:--] The Warden was never given a number. There is no guidance for what happens next. Please proceed anyway.",
+    "scroll_pos": [
+      100,
+      380
+    ],
+    "boss": "boss",
+    "boss_intro": true,
+    "boss_lore": [
+      [
+        "RECOVERED LOG -- FINAL ENTRY",
+        "The Warden was never completed as its own Designation. Pieces of all four were used, because there was no time left to build a fifth."
+      ],
+      [
+        "REVIEW NOTE",
+        "It is the only thing in this building we did not make on purpose."
+      ],
+      [
+        "UNSIGNED",
+        "If you are reading this, the tape is still running. That was not supposed to be possible."
+      ]
+    ],
+    "collapse_platforms": [
+      [
+        400,
+        280,
+        120,
+        20
+      ],
+      [
+        560,
+        220,
+        120,
+        20
+      ]
     ]
   }
 ]
