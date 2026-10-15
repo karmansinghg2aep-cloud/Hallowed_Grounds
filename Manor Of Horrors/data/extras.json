@@ -1,12 +1,52 @@
 {
-  "safe_rooms": [8, 19, 30, 42, 52],
-  "dark_rooms": [11, 13, 15, 17, 23, 25, 27, 29, 32, 35],
-  "hide_rooms": [16, 22, 24, 26, 28, 36, 39, 46, 48, 50],
-  "hush_rooms": [34, 47, 51],
+  "safe_rooms": [
+    8,
+    19,
+    30,
+    42,
+    52
+  ],
+  "dark_rooms": [
+    11,
+    13,
+    15,
+    17,
+    23,
+    25,
+    27,
+    29,
+    32,
+    35
+  ],
+  "hide_rooms": [
+    16,
+    22,
+    24,
+    26,
+    28,
+    36,
+    39,
+    46,
+    48,
+    50
+  ],
+  "hush_rooms": [
+    34,
+    47,
+    51
+  ],
   "risky_placements": {
-    "11": {"secret": 320, "battery": 370},
-    "29": {"secret": 470},
-    "39": {"secret": 370, "locker": 540}
+    "11": {
+      "secret": 320,
+      "battery": 370
+    },
+    "29": {
+      "secret": 470
+    },
+    "39": {
+      "secret": 370,
+      "gap": 540
+    }
   },
   "lie_labels": {
     "18": "ROOM 17",
@@ -16,28 +56,98 @@
   "notes": {
     "2": "NOTE 02 [STICKY] I counted. It is 8 steps.",
     "10": "NOTE 10 [FORM] INTAKE 22. STATUS: UNRECORDED.",
-    "13": "NOTE 13 [STICKY] It drops when the signal breaks. Count to two.",
+    "13": "NOTE 13 [STICKY] The red tearing means DESIGNATION 02 has picked your frame. Move before it drops.",
     "21": "NOTE 21 [SCRATCHED] IT WAS SITTING THERE WHEN I CAME IN. IT WAS SITTING THERE WHEN I LEFT.",
     "26": "NOTE 26 [FORM] SUBJECT 3: LAST SEEN FACING THE WALL. DO NOT CORRECT THE RECORD.",
-    "28": "NOTE 28 [STICKY] hide before the red light blinks fast",
-    "37": "NOTE 37 [FORM] PLEASE REMAIN STILL WHILE THE ROOM IS LISTENING.",
-    "41": "NOTE 41 [SCRATCHED] ONE OF THEM IS A COPY. I CAN'T TELL WHICH.",
-    "44": "NOTE 44 [SCRATCHED] I'M NOT THE FIRST SUBJECT HERE. I'M NOT EVEN THE THIRD.",
-    "46": "NOTE 46 [FORM] DESIGNATION 05: NO RECORD ON FILE.",
-    "49": "NOTE 49 [STICKY] the number on my badge isn't the one I remember"
+    "28": "NOTE 28 [STICKY] When the static folds across the picture, enter the gap. Don't move until it lets you go.",
+    "37": "NOTE 37 [FORM] PLEASE REMAIN STILL WHILE THE ROOM IS LISTENING. The recording keeps your outline after you leave.",
+    "41": "NOTE 41 [SCRATCHED] One is a copy. The other is a copy of someone who left. I cannot tell which.",
+    "44": "NOTE 44 [SCRATCHED] I'm not the first subject here. The voices say they stayed. They sound relieved.",
+    "46": "NOTE 46 [FORM] DESIGNATION 05: NO SUBJECT ON FILE. Do not let it stand where you stood.",
+    "49": "NOTE 49 [STICKY] My badge says the same number as the one who died here. They call that continuity."
   },
   "secrets": {
-    "3":  {"text": "NOTE 03 [SCRATCHED] THE WALL AT THE END OF THE ROOM IS NOT THE SAME COLOR. I DID NOT TOUCH IT. I SHOULD HAVE.", "reward": "life"},
-    "7":  {"text": "NOTE 07 [SCRATCHED] DON'T LOOK AT THE LIGHT. IT KNOWS.", "reward": "life", "unlisted": true},
-    "11": {"text": "NOTE 11 [STICKY] the draft comes from inside the wall. Someone left a battery here.", "reward": "battery"},
-    "15": {"text": "NOTE 15 [FORM] UNLISTED OCCUPANT. DO NOT APPROACH. DO NOT ASK WHO LET IT IN.", "reward": "life", "unlisted": true},
-    "21": {"text": "NOTE 21 [SCRATCHED] I HID IN HERE FOR A WHILE. NOBODY CAME LOOKING.", "reward": "life"},
-    "24": {"text": "NOTE 24 [STICKY] it only wakes up for things it can hear. walk.", "reward": "life"},
-    "29": {"text": "NOTE 29 [SCRATCHED] IT STANDS THERE. IT NEVER MOVES. THAT IS WORSE.", "reward": "battery", "unlisted": true},
-    "33": {"text": "NOTE 33 [FORM] ROOM OCCUPANT NOT ON ANY LIST. FILE CLOSED. FILE REOPENED. FILE CLOSED.", "reward": "life", "unlisted": true},
-    "36": {"text": "NOTE 36 [STICKY] one moves. one watches. I learned to be neither.", "reward": "life"},
-    "39": {"text": "NOTE 39 [SCRATCHED] THE QUIET ONE IS NOT THE SAFE ONE.", "reward": "life"},
-    "45": {"text": "NOTE 45 [FORM] THE LAST UNLISTED RESIDENT. IT WAS HERE BEFORE THE PROGRAM. PLEASE LEAVE IT ALONE.", "reward": "life", "unlisted": true},
-    "48": {"text": "NOTE 48 [STICKY] the beep is not in the walls. it is in the room I came from.", "reward": "life"}
+    "3": {
+      "text": "NOTE 03 [SCRATCHED] THE WALL AT THE END OF THE ROOM IS NOT THE SAME COLOR. I DID NOT TOUCH IT. I SHOULD HAVE.",
+      "reward": "life"
+    },
+    "7": {
+      "text": "NOTE 07 [SCRATCHED] THE LIGHT IS THE ONLY THING THAT CAN SEE YOU BETWEEN FRAMES. I DID NOT TOUCH IT.",
+      "reward": "life",
+      "unlisted": true,
+      "requires_title": "ARCHIVIST"
+    },
+    "11": {
+      "text": "NOTE 11 [STICKY] the draft comes from inside the wall. Someone left a battery here.",
+      "reward": "battery"
+    },
+    "15": {
+      "text": "NOTE 15 [FORM] UNLISTED OCCUPANT. The Guide says it is a voice. It says it is still in the room. Do not ask which is true.",
+      "reward": "life",
+      "unlisted": true,
+      "requires_title": "ARCHIVIST"
+    },
+    "21": {
+      "text": "NOTE 21 [SCRATCHED] I HID IN HERE FOR A WHILE. NOBODY CAME LOOKING.",
+      "reward": "life"
+    },
+    "24": {
+      "text": "NOTE 24 [STICKY] it only wakes up for things it can hear. walk.",
+      "reward": "life"
+    },
+    "29": {
+      "text": "NOTE 29 [SCRATCHED] IT STANDS THERE BECAUSE THAT IS THE LAST FRAME IT REMEMBERS. THAT IS WORSE.",
+      "reward": "battery",
+      "unlisted": true,
+      "requires_title": "ARCHIVIST"
+    },
+    "33": {
+      "text": "NOTE 33 [FORM] ROOM OCCUPANT NOT ON ANY LIST. FILE CLOSED. FILE REOPENED. The Auditor did not see it.",
+      "reward": "life",
+      "unlisted": true,
+      "requires_title": "ARCHIVIST"
+    },
+    "36": {
+      "text": "NOTE 36 [STICKY] one moves. one watches. I learned to be neither.",
+      "reward": "life"
+    },
+    "39": {
+      "text": "NOTE 39 [SCRATCHED] THE QUIET ONE IS NOT THE SAFE ONE.",
+      "reward": "life"
+    },
+    "45": {
+      "text": "NOTE 45 [FORM] THE LAST UNLISTED RESIDENT. IT WAS HERE BEFORE THE PROGRAM. PLEASE LEAVE THE GAP OPEN FOR IT.",
+      "reward": "life",
+      "unlisted": true,
+      "requires_title": "ARCHIVIST"
+    },
+    "48": {
+      "text": "NOTE 48 [STICKY] the beep is not in the walls. it is in the room I came from.",
+      "reward": "life"
+    }
+  },
+  "audit_rooms": [
+    16,
+    24,
+    36,
+    46,
+    50
+  ],
+  "artifacts": {
+    "13": {
+      "id": "bell_clapper",
+      "name": "The Bell Clapper",
+      "text": "RELIC 01 // THE BELL CLAPPER. The chapel bell rang once after its clapper was removed. The sound came from below the house."
+    },
+    "33": {
+      "id": "sealed_writ",
+      "name": "The Sealed Writ",
+      "text": "RELIC 02 // THE SEALED WRIT. A dead lawyer signed this order with a name that has been scraped away. The final line reads: ADMIT THE WITNESS."
+    },
+    "47": {
+      "id": "negative_frame",
+      "name": "The Negative Frame",
+      "text": "RELIC 03 // THE NEGATIVE FRAME. In the photograph, the wall behind the Warden is a door. A second figure is waiting on the other side."
+    }
   }
 }

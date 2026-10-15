@@ -7,11 +7,13 @@ Files this game needs (all in the same folder as manor.py):
     data/chapters.json                the look and difficulty of each tape (chapter)
     data/rooms.json                   every room, its monsters, and its tape text
     data/extras.json                  notes, secrets, safe rooms, dark rooms, hiding spots (optional)
-    data/settings.json                made automatically
-    data/saves/save1..3.json          made automatically
+
+Settings and saves are created in the user's application-data folder. Existing local saves are
+copied there the first time the game starts.
 
 Run it with:   python3 manor.py
 Check where the extras landed in every room:   python3 manor.py --check
+Smoke-test startup and menu rendering: python3 manor.py --smoke
 
 HOW THIS FILE IS ORGANIZED (top to bottom):
     1.  Constants
@@ -27,7 +29,10 @@ import json
 import math
 import os
 import random
+import shutil
 import sys
+import tempfile
+import traceback
 
 import pygame
 
@@ -77,6 +82,7 @@ except ImportError:
 # ==================================================================
 WIDTH, HEIGHT = 800, 500
 FPS = 60
+BEAM_SAFE_LANE = 128  # The Signal cannot reach the two marked wall-side shelters.
 
 # Player feel. Change these to change how the game plays!
 PLAYER_W, PLAYER_H = 28, 40
@@ -99,9 +105,9 @@ NOISE_RUN = 320            # how far away (pixels) a creature could hear a runni
 NOISE_WALK = 110           # ...and a walking step. Standing still makes no noise at all.
 NOISE_LIFE = 45            # frames a noise event lasts before it fades away
 
-# Hiding (lockers), the flashlight, and the Hush
+# Hiding in gaps in the recording, the flashlight, and the Hush
 HIDE_KEYS = (pygame.K_DOWN, pygame.K_s, pygame.K_e)
-HIDE_FOUND_FRAMES = 150    # a Designation standing next to your locker this long finds you
+HIDE_FOUND_FRAMES = 150    # a Designation close to the gap this long finds you
 BATTERY_MAX = 100.0
 BATTERY_DRAIN = 0.015      # lost per frame in a dark room (about 110 seconds of light)
 BATTERY_PICKUP = 35.0
@@ -110,13 +116,13 @@ HUSH_SPEED = 2.0           # how fast the Hush roams the room
 HUSH_RANGE = 230           # how close (pixels, sideways) it has to be to swallow the sound
 HUSH_FADE_FRAMES = 120     # the sound fades away over 2 seconds. That fade is the warning.
 
-BUILD = "build 4: no dust puffs, no noise rings"     # shown in the window title so you can tell which file is running
+BUILD = "build 8: fair boss patterns"              # shown in the window title so you can tell which file is running
 
 # Visual switches. True = shown, False = hidden.
 PLAYER_PUFFS = False        # the round dust puffs when you jump, land and walk (they come from visuals.py)
 SHOW_NOISE_RINGS = False    # the thin grey rings that show how far your footsteps carry (True = show them)
 
-DESIGNATIONS = ("patroller", "flyer", "chaser", "shooter")   # the creatures a locker hides you from
+DESIGNATIONS = ("patroller", "flyer", "chaser", "shooter")   # creatures that can find you in a gap
 
 KEY_SIZE = 30
 TAPE_W, TAPE_H = 26, 20
@@ -132,20 +138,79 @@ RED = (200, 60, 60)
 
 # Files and folders
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
-SAVE_DIR = os.path.join(DATA_DIR, "saves")
+RESOURCE_DIR = getattr(sys, "_MEIPASS", BASE_DIR)
+DATA_DIR = os.path.join(RESOURCE_DIR, "data")
+
+
+def user_data_directory():
+    """Return a writable per-user directory for saves and settings on each OS."""
+    override = os.environ.get("HALLOWED_GROUNDS_DATA_DIR")
+    if override:
+        return os.path.abspath(os.path.expanduser(override))
+    home = os.path.expanduser("~")
+    if sys.platform == "win32":
+        root = os.environ.get("APPDATA") or os.path.join(home, "AppData", "Roaming")
+    elif sys.platform == "darwin":
+        root = os.path.join(home, "Library", "Application Support")
+    else:
+        root = os.environ.get("XDG_DATA_HOME") or os.path.join(home, ".local", "share")
+    return os.path.join(root, "Hallowed Grounds")
+
+
+USER_DATA_DIR = user_data_directory()
+SAVE_DIR = os.path.join(USER_DATA_DIR, "saves")
+SETTINGS_PATH = os.path.join(USER_DATA_DIR, "settings.json")
+_legacy_data_migrated = False
+
+
+def migrate_legacy_user_data():
+    """Copy existing local saves once, without replacing newer app-data files."""
+    global _legacy_data_migrated
+    if _legacy_data_migrated:
+        return
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    legacy_dirs = (os.path.join(BASE_DIR, "data"), DATA_DIR)
+    for legacy_dir in legacy_dirs:
+        for relative in ("settings.json", *("saves/save%d.json" % slot for slot in range(1, NUM_SLOTS + 1))):
+            source = os.path.join(legacy_dir, relative)
+            target = os.path.join(USER_DATA_DIR, relative)
+            if os.path.abspath(source) == os.path.abspath(target) or os.path.exists(target):
+                continue
+            if os.path.isfile(source):
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                try:
+                    shutil.copy2(source, target)
+                except OSError as exc:
+                    print("Could not migrate %s: %s" % (relative, exc))
+    _legacy_data_migrated = True
+
+
+def write_json_atomically(path, data):
+    """Write JSON through a temporary file so an interrupted save stays recoverable."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=os.path.dirname(path),
+                                         prefix=".save-", suffix=".tmp", delete=False) as f:
+            temp_path = f.name
+            json.dump(data, f, indent=2)
+            f.write("\n")
+        os.replace(temp_path, path)
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
 
 # The Guide's voice (calm, polite, wrong)
 GUIDE_LINES = [
-    "Thank you for your compliance. Your responses so far have been logged as typical.",
-    "You are not the first person to sit exactly where you are sitting now.",
-    "If a voice you recognize speaks to you from off-camera, that is not a reason to answer it.",
-    "This recording has been edited for your comfort. The unedited version exists.",
-    "Please remember: the Program does not end when the tape does. It has never once ended.",
+    "Thank you for your compliance. Your escape response is within the expected range.",
+    "You are not the first person to stand exactly where you are standing now.",
+    "If a voice you recognize speaks from a room marked STAY, do not answer it.",
+    "The gaps in this recording are harmless. The Auditor will confirm this.",
+    "The Program does not end when the tape does. It has never once ended.",
 ]
 GAME_OVER_LINES = [
     "SUBJECT %d NOT RECOVERED. This footage has been marked for reuse.",
-    "Please remain still. Every subject who remained still was found. Eventually.",
+    "Please remain still. The Auditor has already filed your position.",
     "The Program regrets the interruption. It has regretted it %d times before.",
     "TRACKING LOST. Rewinding to the last approved frame. This is routine.",
     "You left the marked path. Subject %d also left the marked path.",
@@ -159,6 +224,8 @@ ROOMS = []             # every room from rooms.json
 EXTRAS = {}            # everything from extras.json (notes, secrets, safe rooms...)
 FIRST_SEEN_KIND = {}   # monster kind -> index of the first room it appears in (for a one-time jumpscare)
 RUN = {"battery": BATTERY_MAX}     # the flashlight battery is carried from room to room
+ARTIFACTS = ("bell_clapper", "sealed_writ", "negative_frame")
+SECRET_BOSS_ROOM = None
 
 # These are saved in settings.json, so they survive quitting:
 #   subject_count  the Subject number. It NEVER resets.
@@ -167,7 +234,17 @@ RUN = {"battery": BATTERY_MAX}     # the flashlight battery is carried from room
 #   secrets        room numbers whose secret wall has been opened
 #   twist_done     True once the "retired Subject number" has been shown (it only happens once)
 DEFAULT_SETTINGS = {"volume": 70, "chapter_intros": True, "difficulty": "normal",
-                    "subject_count": 0, "loops": 0, "ending": "", "secrets": [], "twist_done": False}
+                    "subject_count": 0, "loops": 0, "ending": "", "secrets": [], "twist_done": False,
+                    "unlocked_titles": [], "active_title": ""}
+TITLE_REWARDS = {
+    "FIRST FOOTAGE": "Escape the first room. Sprint uses less stamina.",
+    "ARCHIVIST": "Collect three story files. Unseal the unlisted rooms; relics glow nearby.",
+    "THE HOUSE KNOWS": "Escape the Auditor's room. Gain one extra heart.",
+    "STILL HERE": "Finish the first tape. Stamina recovers faster.",
+    "BELOW THE RECORD": "Reach the final tape. Flashlight drains more slowly.",
+    "NO EXIT": "Finish the full game. Boss hits deal extra damage.",
+    "<dev>": "A private title. Press Tab in a room to skip it.",
+}
 settings = dict(DEFAULT_SETTINGS)
 settings["secrets"] = []
 FONTS = {}
@@ -198,7 +275,11 @@ def preset():
 
 
 def max_lives():
-    return preset()["lives"]
+    return preset()["lives"] + (1 if settings.get("active_title") == "THE HOUSE KNOWS" else 0)
+
+
+def title_active(title):
+    return settings.get("active_title") == title
 
 
 # ==================================================================
@@ -246,6 +327,9 @@ def load_game_data():
         sys.exit('rooms.json should start with [ (a list of rooms) but it holds a %s. '
                  'Did chapters.json get copied into rooms.json by mistake?' % type(rooms).__name__)
     ROOMS[:] = rooms
+    global SECRET_BOSS_ROOM
+    secret_boss_path = os.path.join(DATA_DIR, "secret_boss.json")
+    SECRET_BOSS_ROOM = load_json("secret_boss.json") if os.path.isfile(secret_boss_path) else None
     validate_data()
     load_extras()
     FIRST_SEEN_KIND.clear()
@@ -276,13 +360,14 @@ def validate_data():
 
 
 def load_settings():
+    migrate_legacy_user_data()
     try:
-        with open(os.path.join(DATA_DIR, "settings.json")) as f:
+        with open(SETTINGS_PATH, encoding="utf-8") as f:
             saved = json.load(f)
         for key in DEFAULT_SETTINGS:
             if key in saved:
                 settings[key] = saved[key]
-    except (FileNotFoundError, json.JSONDecodeError, TypeError):
+    except (FileNotFoundError, json.JSONDecodeError, TypeError, AttributeError):
         pass
     if settings.get("difficulty") not in PRESETS:
         settings["difficulty"] = "normal"
@@ -297,12 +382,15 @@ def load_settings():
     secrets = settings.get("secrets")
     settings["secrets"] = [s for s in secrets if isinstance(s, int)] if isinstance(secrets, list) else []
     settings["twist_done"] = bool(settings.get("twist_done", False))
+    unlocked = settings.get("unlocked_titles", [])
+    settings["unlocked_titles"] = [t for t in unlocked if t in TITLE_REWARDS] if isinstance(unlocked, list) else []
+    active = settings.get("active_title", "")
+    settings["active_title"] = active if active in settings["unlocked_titles"] else ""
 
 
 def save_settings():
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with open(os.path.join(DATA_DIR, "settings.json"), "w") as f:
-        json.dump(settings, f, indent=2)
+    migrate_legacy_user_data()
+    write_json_atomically(SETTINGS_PATH, settings)
 
 
 def save_path(slot):
@@ -311,6 +399,7 @@ def save_path(slot):
 
 def read_save(slot):
     """Returns a dict for the slot, or None if the slot is empty (or unreadable)."""
+    migrate_legacy_user_data()
     try:
         with open(save_path(slot)) as f:
             data = json.load(f)
@@ -318,15 +407,31 @@ def read_save(slot):
             "room_index": max(0, int(data.get("room_index", 0))),
             "lives": max(1, int(data.get("lives", max_lives()))),
             "collected_scrolls": [c for c in data.get("collected_scrolls", []) if isinstance(c, str)],
+            "collected_artifacts": [c for c in data.get("collected_artifacts", []) if c in ARTIFACTS],
+            "secret_boss_defeated": bool(data.get("secret_boss_defeated", False)),
         }
     except (FileNotFoundError, json.JSONDecodeError, ValueError, TypeError, AttributeError):
         return None
 
 
-def write_save(slot, room_index, lives, collected):
-    os.makedirs(SAVE_DIR, exist_ok=True)
-    with open(save_path(slot), "w") as f:
-        json.dump({"room_index": room_index, "lives": lives, "collected_scrolls": collected}, f, indent=2)
+def write_save(slot, room_index, lives, collected, collected_artifacts=None, secret_boss_defeated=False):
+    migrate_legacy_user_data()
+    write_json_atomically(save_path(slot), {
+        "room_index": room_index,
+        "lives": lives,
+        "collected_scrolls": collected,
+        "collected_artifacts": list(collected_artifacts or []),
+        "secret_boss_defeated": bool(secret_boss_defeated),
+    })
+
+
+def unlock_title(title):
+    """Remember a newly earned title. Returns True only the first time it is earned."""
+    if title not in TITLE_REWARDS or title in settings["unlocked_titles"]:
+        return False
+    settings["unlocked_titles"].append(title)
+    save_settings()
+    return True
 
 
 def slot_label(slot):
@@ -542,7 +647,7 @@ def trap_warning(trap, frame):
 
 
 # ---------- Where the extras go ----------
-# Lockers, notes, batteries and secret walls are NOT placed by hand. The computer looks for a spot on the
+# Gaps, notes, batteries and secret walls are NOT placed by hand. The computer looks for a spot on the
 # floor that is far from pits, spikes, patrol paths, platforms, the door, the key and where you start.
 def floor_avoid_rects(room, include_monsters=True):
     """Rectangles on the floor that no extra is allowed to touch."""
@@ -611,22 +716,25 @@ def place_risky_extra(room, room_no, kind, w, h, taken):
     return rect
 
 
-def plan_extras(room, index):
+def plan_extras(room, index, collected_artifacts=None):
     """Decides everything extra about one room, without playing it:
-    safe room? dark room? where is the locker, the note, the battery, the secret wall, the marks?"""
+    safe room? dark room? where is the footage gap, note, battery, secret wall, and marks?"""
     room_no = index + 1
     rng = random.Random(index * 7919 + 101)
     safe = room_no in EXTRAS.get("safe_rooms", [])
     view = dict(room, monsters=[], traps=[]) if safe else room    # a safe room has no creatures or spikes to avoid
     plan = {"room_no": room_no, "safe": safe, "dark": room_no in EXTRAS.get("dark_rooms", []) and not safe,
             "hide": None, "note": None, "battery": None, "secret": None,
+            "audit": room_no in EXTRAS.get("audit_rooms", []) and not safe,
             "hush": room_no in EXTRAS.get("hush_rooms", []) and not safe,
             "label": EXTRAS.get("lie_labels", {}).get(str(room_no), room_display_name(index)),
-            "marks": [], "skipped": [], "risky": []}
+            "marks": [], "skipped": [], "risky": [], "artifact": None}
     taken = []
     boss = bool(room.get("boss_intro"))
 
     entry = EXTRAS.get("secrets", {}).get(str(room_no))
+    if entry and entry.get("requires_title") and not title_active(entry["requires_title"]):
+        entry = None
     if entry and not safe and not boss:
         panel = place_on_floor(view, 30, 60, taken, rng)
         risky = False
@@ -648,14 +756,14 @@ def plan_extras(room, index):
         spot = place_on_floor(view, 30, 56, taken, rng)
         risky = False
         if spot is None:
-            spot = place_risky_extra(view, room_no, "locker", 30, 56, taken)
+            spot = place_risky_extra(view, room_no, "gap", 30, 56, taken)
             risky = spot is not None
         if spot is None:
-            plan["skipped"].append("locker (no safe floor)")
+            plan["skipped"].append("recording gap (no safe floor)")
         else:
             plan["hide"] = spot
             if risky:
-                plan["risky"].append("locker")
+                plan["risky"].append("gap")
             taken.append(spot.inflate(30, 0))
 
     text = EXTRAS.get("notes", {}).get(str(room_no))
@@ -668,6 +776,15 @@ def plan_extras(room, index):
         else:
             plan["note"] = {"rect": spot, "text": text}
             taken.append(spot.inflate(30, 0))
+
+    artifact = EXTRAS.get("artifacts", {}).get(str(room_no))
+    if artifact and artifact.get("id") not in (collected_artifacts or []) and not safe and not boss:
+        spot = place_on_floor(view, 24, 24, taken, rng)
+        if spot is not None:
+            plan["artifact"] = dict(artifact, rect=spot)
+            taken.append(spot.inflate(30, 0))
+        else:
+            plan["skipped"].append("relic (no safe floor)")
 
     if plan["dark"]:
         spot = place_on_floor(view, 18, 22, taken, rng)
@@ -713,15 +830,19 @@ def check_extras():
         if p["dark"]:
             bits.append("dark")
         if p["hide"]:
-            bits.append("locker x=%d" % p["hide"].x)
+            bits.append("gap x=%d" % p["hide"].x)
         if p["note"]:
             bits.append("note x=%d" % p["note"]["rect"].x)
         if p["battery"]:
             bits.append("battery x=%d" % p["battery"].x)
+        if p["artifact"]:
+            bits.append("relic: %s x=%d" % (p["artifact"]["name"], p["artifact"]["rect"].x))
         if p["secret"]:
             bits.append("secret wall on the %s%s" % (p["secret"]["side"], " (UNLISTED inside)" if p["secret"]["unlisted"] else ""))
         if p["hush"]:
             bits.append("THE HUSH")
+        if p["audit"]:
+            bits.append("AUDITOR")
         if p["risky"]:
             bits.append("RISKY placement: " + ", ".join(p["risky"]))
         if p["label"] != room_display_name(i):
@@ -761,10 +882,16 @@ class Monster:
         self.bob_speed = cfg.get("bob_speed", 0.05)
         self.phase = 0.0
         self.wail_cooldown = 0
+        self.dive_state = "idle"
+        self.dive_timer = random.randint(420, 720)
+        self.dive_warning = 0
+        self.dive_target_x = self.x
+        self.dive_target_y = self.y
         # chaser
         self.detect_radius = cfg.get("detect_radius", 150)
         self.sleep_radius = cfg.get("sleep_radius", 250)
         self.awake = False
+        self.wake_progress = 0.0
         self.face = 1                   # which way a chaser is looking
         self.last_seen_x = self.x       # where a chaser last saw you (it walks there if you hide)
         self.lose_timer = 0
@@ -774,12 +901,20 @@ class Monster:
         self.projectile_speed = cfg.get("projectile_speed", 5)
         self.cooldown = self.fire_interval
         self.aligned = False
+        boss_health = {"doorstalker": 4, "beamer": 4, "summoner": 4,
+                       "guardian": 4, "warden": 5, "secret_boss": 6}.get(self.kind, 1)
+        self.boss_hp_max = boss_health
+        self.boss_hp = boss_health
+        self.exposed_timer = 0
+        self.boss_hit_cooldown = 0
         # doorstalker (boss): lives inside door-frames, telegraphs, then dashes through one of them
         self.doors = cfg.get("doors", [])
         self.telegraph_time = cfg.get("telegraph", 55)
         self.manifest_time = cfg.get("manifest", 36)
         self.cooldown_time = cfg.get("cooldown", 80)
         self.dash_speed = cfg.get("speed", 5.5)
+        self.dash_target_x = self.x
+        self.dash_passes = 0
         if self.kind == "doorstalker":
             self.w, self.h = 30, 62
             self.state = "hidden"
@@ -792,17 +927,22 @@ class Monster:
         self.beam_telegraph = cfg.get("beam_telegraph", 60)
         self.beam_time = cfg.get("beam_time", 40)
         self.beam_cooldown = cfg.get("beam_cooldown", 70)
-        # summoner (boss): stands still, periodically calls in a short-lived minion
-        self.summon_interval = cfg.get("summon_interval", 130)
-        self.minion_life = cfg.get("minion_life", 200)
-        self.minion_speed = cfg.get("minion_speed", 2.0)
+        self.beam_y = self.y + self.size // 2
+        # counsel (boss): marks a lane, strikes it, then remains open during recovery
+        self.verdict_interval = cfg.get("verdict_interval", 165)
+        self.verdict_count = 0
         # guardian (boss): slow patrol, defeated by landing on top of it; hurts if touched from the side
         self.defeated = False
-        if self.kind in ("beamer", "summoner", "guardian"):
+        if self.kind in ("beamer", "summoner", "guardian", "secret_boss"):
             self.w = self.h = self.size
             self.state = "idle"
-            self.timer = cfg.get("beam_telegraph", 60) if self.kind == "beamer" else self.summon_interval
+            self.timer = cfg.get("beam_telegraph", 60) if self.kind == "beamer" else self.verdict_interval
             self.beam_active = False
+        if self.kind in ("guardian", "secret_boss"):
+            self.state = "stalking"
+            self.timer = cfg.get("attack_interval", 100)
+            self.special_mode = False
+            self.double_slam_pending = False
 
         # warden (final boss): one monster, three timed phases -- no combat, only avoidance, just like
         # every other room. Phase 1 paces. Phase 2 rises and fires. Phase 3 chases while the room collapses.
@@ -832,8 +972,31 @@ class Monster:
     def beam_rect(self):
         """The wide, dangerous hazard a beamer boss sweeps out. None unless it is actively firing."""
         if self.kind == "beamer" and self.state == "beam" and not self.defeated:
-            return pygame.Rect(0, int(self.y) + self.size // 2 - 8, WIDTH, 16)
+            return pygame.Rect(BEAM_SAFE_LANE, int(self.beam_y) - 8,
+                              WIDTH - 2 * BEAM_SAFE_LANE, 16)
         return None
+
+    @property
+    def attack_rect(self):
+        """The Counsel's visible floor-seal danger area while the gavel falls."""
+        if self.kind == "summoner" and self.state == "sentence" and not self.defeated:
+            return pygame.Rect(int(self.verdict_x - 56), int(self.verdict_y - 12), 112, 24)
+        return None
+
+    @property
+    def vulnerable(self):
+        """Boss weak points have short, readable openings instead of permanent damage windows."""
+        if self.kind == "doorstalker":
+            return self.state == "exposed"
+        if self.kind == "beamer":
+            return self.state == "exposed"
+        if self.kind == "summoner":
+            return self.state == "open"
+        if self.kind in ("guardian", "secret_boss"):
+            return self.state == "stunned"
+        if self.kind == "warden":
+            return self.phase == 3 and self.exposed_timer > 0
+        return False
 
     def _distance_to(self, player):
         return math.hypot(player.centerx - self.rect.centerx, player.centery - self.rect.centery)
@@ -856,17 +1019,52 @@ class Monster:
             self.x += self.speed if dx > 0 else -self.speed
         self.x = max(0, min(WIDTH - self.size, self.x))
 
+    def _aimed_shot(self, player, speed, size, homing=0.0):
+        """Fire toward the player's current position; optional homing turns gently while in flight."""
+        start_x, start_y = self.rect.centerx, self.rect.centery
+        dx, dy = player.centerx - start_x, player.centery - start_y
+        distance = max(1.0, math.hypot(dx, dy))
+        return {"x": start_x - size / 2, "y": start_y - size / 2,
+                "vx": dx / distance * speed, "vy": dy / distance * speed,
+                "size": size, "turn_rate": homing}
+
     def update(self, player, projectiles, hidden=False, noise=None):
         """Moves the monster one frame. Returns a list of sound names to play.
-        hidden = the player is inside a locker.  noise = the sounds the player has been making."""
+        hidden = the player is inside a gap in the recording.  noise = the sounds the player has been making."""
         sounds = []
+        self.boss_hit_cooldown = max(0, self.boss_hit_cooldown - 1)
+        self.exposed_timer = max(0, self.exposed_timer - 1)
         if self.kind == "patroller":
             self._patrol()
 
         elif self.kind == "flyer":
-            self._patrol()
             self.phase += self.bob_speed
-            self.y = self.base_y + math.sin(self.phase) * self.bob_amplitude
+            if self.dive_state == "idle":
+                self._patrol()
+                self.y = self.base_y + math.sin(self.phase) * self.bob_amplitude
+                self.dive_timer -= 1
+                if self.dive_timer <= 0 and not hidden and self._distance_to(player) < 300:
+                    self.dive_state, self.dive_warning = "warning", 54
+                    sounds.append("telegraph")
+            elif self.dive_state == "warning":
+                self.dive_warning -= 1
+                if hidden:
+                    self.dive_state, self.dive_timer = "idle", 180
+                elif self.dive_warning <= 0:
+                    self.dive_target_x = max(20, min(WIDTH - self.size - 20, player.centerx - self.size // 2))
+                    self.dive_target_y = min(420, max(self.base_y + 70, player.centery - self.size // 2))
+                    self.dive_state = "diving"
+                    sounds.append("manifest")
+            elif self.dive_state == "diving":
+                self.x += max(-3.2, min(3.2, self.dive_target_x - self.x))
+                self.y += min(7.0, max(0.0, self.dive_target_y - self.y))
+                if abs(self.x - self.dive_target_x) < 4 and self.y >= self.dive_target_y:
+                    self.dive_state = "rising"
+            else:
+                self.y = max(self.base_y, self.y - 5.0)
+                if self.y <= self.base_y:
+                    self.y = self.base_y
+                    self.dive_state, self.dive_timer = "idle", random.randint(420, 720)
             self.wail_cooldown = max(0, self.wail_cooldown - 1)
             if self.wail_cooldown == 0 and self._distance_to(player) < 260:
                 sounds.append("banshee")
@@ -897,15 +1095,22 @@ class Monster:
                     self.awake = False          # you got far enough away, it goes back to sleep
                 if self.awake:
                     self._step_toward(player.centerx)
+            # It takes several frames to unfold, giving the player a readable warning.
+            self.wake_progress = min(1.0, self.wake_progress + 0.055) if self.awake else max(0.0, self.wake_progress - 0.07)
 
         elif self.kind == "shooter":
-            self.aligned = (not hidden) and abs(player.centery - self.rect.centery) < self.align_tolerance
+            hard_aim = settings.get("difficulty") == "hard"
+            self.aligned = (not hidden) and (hard_aim or
+                            abs(player.centery - self.rect.centery) < self.align_tolerance)
             if self.cooldown > 0:
                 self.cooldown -= 1
             if self.aligned and self.cooldown == 0:
-                direction = 1 if player.centerx > self.rect.centerx else -1
-                projectiles.append({"x": self.rect.centerx, "y": self.rect.centery - 5,
-                                    "vx": direction * self.projectile_speed, "size": 10})
+                if hard_aim:
+                    projectiles.append(self._aimed_shot(player, self.projectile_speed, 10))
+                else:
+                    direction = 1 if player.centerx > self.rect.centerx else -1
+                    projectiles.append({"x": self.rect.centerx, "y": self.rect.centery - 5,
+                                        "vx": direction * self.projectile_speed, "size": 10})
                 self.cooldown = self.fire_interval
                 sounds.append("shoot")
 
@@ -922,15 +1127,37 @@ class Monster:
                     dx0, dy0 = self.doors[self.active_door]
                     self.x, self.y = float(dx0), float(dy0)
                     self.dash_dir = 1 if player.centerx >= self.rect.centerx else -1
-                    self.state, self.timer = "manifest", self.manifest_time
+                    self.dash_target_x = max(24, min(WIDTH - self.w - 24,
+                                                     player.centerx + self.dash_dir * 105))
+                    self.state, self.timer = "manifest", max(48, self.manifest_time)
                     sounds.append("manifest")
             elif self.state == "manifest":
-                self.x += self.dash_speed * self.dash_dir
-                if self.timer <= 0 or self.x < -80 or self.x > WIDTH + 80:
-                    self.state, self.timer = "hidden", self.cooldown_time
-                    self.x, self.y = -400.0, -400.0
+                speed = max(self.dash_speed, 8.5)
+                if settings.get("difficulty") == "hard":
+                    speed *= 1.22
+                self.x += speed * self.dash_dir
+                reached = self.x >= self.dash_target_x if self.dash_dir > 0 else self.x <= self.dash_target_x
+                if reached or self.timer <= 0:
+                    self.x = max(24, min(WIDTH - self.w - 24, self.x))
+                    self.dash_passes += 1
+                    if self.dash_passes == 1 and self.doors:
+                        choices = [i for i in range(len(self.doors)) if i != self.active_door] or [self.active_door]
+                        self.active_door = random.choice(choices)
+                        self.x, self.y = map(float, self.doors[self.active_door])
+                        self.state, self.timer = "telegraph", 28
+                        sounds.append("telegraph")
+                    else:
+                        self.dash_passes = 0
+                        self.state, self.timer = "exposed", 36
+                        sounds.append("boss_hit")
+            elif self.state == "exposed" and self.timer <= 0:
+                self.state, self.timer = "hidden", self.cooldown_time
+                self.x, self.y = -400.0, -400.0
 
         elif self.kind == "beamer" and not self.defeated:
+            if self.state == "telegraph" and settings.get("difficulty") == "hard":
+                # Keep tracking the player's height during the warning; lock when firing begins.
+                self.beam_y = max(12, min(HEIGHT - 12, player.centery))
             self.timer -= 1
             if self.state == "idle":
                 if self.timer <= 0:
@@ -938,27 +1165,105 @@ class Monster:
                     sounds.append("telegraph")
             elif self.state == "telegraph":
                 if self.timer <= 0:
+                    if settings.get("difficulty") == "hard":
+                        self.beam_y = max(12, min(HEIGHT - 12, player.centery))
+                    else:
+                        self.beam_y = self.y + self.size // 2
+                    self.beam_start_y = self.beam_y
                     self.state, self.timer = "beam", self.beam_time
                     sounds.append("manifest")
             elif self.state == "beam":
+                # The picture tears down the room instead of holding one easy-to-jump line.
+                progress = 1 - max(0, self.timer) / max(1, self.beam_time)
+                self.beam_y = 28 + (HEIGHT - 56) * progress
+                if self.timer <= 0:
+                    self.state, self.timer = "exposed", 48
+                    self.exposed_timer = 48
+            elif self.state == "exposed":
                 if self.timer <= 0:
                     self.state, self.timer = "idle", self.beam_cooldown
 
         elif self.kind == "summoner" and not self.defeated:
             self.timer -= 1
-            if self.timer <= 0:
-                self.timer = self.summon_interval
-                sounds.append("summon")            # play_room adds a short-lived minion when it sees this
+            if self.state == "idle" and self.timer <= 44:
+                if self.verdict_count % 3 == 2:
+                    self.state, self.timer = "appeal_warning", 48
+                else:
+                    self.verdict_x = player.centerx
+                    self.verdict_y = player.bottom
+                    self.state, self.timer = "warning", 44
+                sounds.append("telegraph")
+            elif self.state == "warning" and self.timer <= 0:
+                self.state, self.timer = "sentence", 14
+                sounds.append("manifest")
+            elif self.state == "sentence" and self.timer <= 0:
+                self.state, self.timer = "open", 54
+                sounds.append("boss_hit")
+            elif self.state == "appeal_warning" and self.timer <= 0:
+                dx, dy = player.centerx - self.rect.centerx, player.centery - self.rect.centery
+                aim = math.atan2(dy, dx)
+                for offset in (-0.32, 0.0, 0.32):
+                    angle = aim + offset
+                    speed = 4.2
+                    projectiles.append({
+                        "x": self.rect.centerx - 6, "y": self.rect.centery - 6,
+                        "vx": math.cos(angle) * speed, "vy": math.sin(angle) * speed,
+                        "size": 12, "paper": True,
+                    })
+                self.state, self.timer = "open", 54
+                sounds.extend(["manifest", "shoot"])
+            elif self.state == "open" and self.timer <= 0:
+                self.verdict_count += 1
+                self.state, self.timer = "idle", max(145, self.verdict_interval)
 
-        elif self.kind == "guardian" and not self.defeated:
-            self._patrol()
+        elif self.kind in ("guardian", "secret_boss") and not self.defeated:
+            if self.state == "stalking":
+                self.speed = max(0.75, self.speed)
+                self._patrol()
+                self.timer -= 1
+                if self.timer <= 0:
+                    self.state, self.timer = "windup", 42
+                    self.double_slam_pending = False
+                    sounds.append("telegraph")
+            elif self.state == "windup":
+                self.timer -= 1
+                if self.timer <= 0:
+                    self.state, self.timer = "slam", 10
+                    sounds.append("manifest")
+            elif self.state == "slam":
+                self.timer -= 1
+                if self.timer <= 0:
+                    wave_speed = ((12.0 if self.special_mode else 9.5) if self.kind == "secret_boss"
+                                  else (10.5 if self.special_mode else 8.5))
+                    for direction in (-1, 1):
+                        projectiles.append({"x": self.rect.centerx - 16, "y": HEIGHT - 60,
+                                            "vx": direction * wave_speed, "size": 32, "wave": True})
+                    if self.special_mode and not self.double_slam_pending:
+                        self.double_slam_pending = True
+                        self.state, self.timer = "recoil", 26
+                    else:
+                        self.double_slam_pending = False
+                        self.state, self.timer = "stunned", 82
+                    sounds.append("boss_hit")
+            elif self.state == "recoil":
+                self.timer -= 1
+                if self.timer <= 0:
+                    self.state, self.timer = "slam", 8
+                    sounds.extend(["telegraph", "manifest"])
+            elif self.state == "stunned":
+                self.timer -= 1
+                if self.timer <= 0:
+                    self.state, self.timer = "stalking", 75
 
         elif self.kind == "warden":
             self.just_entered_phase = 0
             self.phase_timer -= 1
             if self.phase == 1:
                 self.speed = self.phase1_speed
-                self._patrol()
+                if self.phase_timer % 180 < 115:
+                    self._step_toward(player.centerx)
+                else:
+                    self._patrol()
                 if self.phase_timer <= 0:
                     self.phase = 2
                     self.phase_timer = 10 ** 9     # phase 2 ends when it's fired a few times, not on a clock
@@ -967,21 +1272,31 @@ class Monster:
                     self.just_entered_phase = 2
                     sounds.append("telegraph")
             elif self.phase == 2:
-                self.aligned = abs(player.centery - self.rect.centery) < self.align_tolerance
+                hard_aim = settings.get("difficulty") == "hard"
+                self.aligned = hard_aim or abs(player.centery - self.rect.centery) < self.align_tolerance
                 if self.cooldown > 0:
                     self.cooldown -= 1
-                if self.aligned and self.cooldown == 0:
-                    direction = 1 if player.centerx > self.rect.centerx else -1
-                    projectiles.append({"x": self.rect.centerx, "y": self.rect.centery - 6,
-                                        "vx": direction * self.phase2_speed, "size": 14})
+                if self.cooldown == 0:
+                    if hard_aim:
+                        projectiles.append(self._aimed_shot(player, self.phase2_speed, 14, homing=0.035))
+                    else:
+                        direction = 1 if player.centerx > self.rect.centerx else -1
+                        projectiles.append({"x": self.rect.centerx, "y": self.rect.centery - 6,
+                                            "vx": direction * self.phase2_speed, "size": 14})
                     self.cooldown = self.phase2_fire
                     self.phase2_shots += 1
                     sounds.append("shoot")
-                    if self.phase2_shots >= 5:
+                    if self.phase2_shots >= 4:
                         self.phase = 3
                         self.just_entered_phase = 3
+                        self.phase_timer = 100
+                        self.exposed_timer = 48
                         sounds.append("manifest")
             elif self.phase == 3:
+                if self.phase_timer <= 0:
+                    self.phase_timer = 120
+                    self.exposed_timer = 44
+                    sounds.append("telegraph")
                 dx = player.centerx - self.rect.centerx
                 self.face = 1 if dx > 0 else -1
                 if abs(dx) > self.phase3_speed:
@@ -999,17 +1314,17 @@ class Monster:
 # Everything here is drawn with plain pygame.draw calls straight onto the picture
 # (no separate little pictures pasted in), the same rule visuals.py follows.
 def draw_spikes(surface, rect, active, warning, frame):
-    """A row of spikes. Pulsing spikes lie flat, shake as a warning, then pop up."""
+    """Pulsing spikes stay flat during the light-and-sound warning, then rise."""
     x0, y0, w, h = rect
     step = 12
     if active:
         height, color = h, (205, 205, 215)
     elif warning:
-        height, color = max(5, h // 2), (170, 110, 110)
+        height, color = 4, (95, 90, 105)
     else:
         height, color = 4, (95, 90, 105)
     for x in range(x0, x0 + w, step):
-        jitter = random.randint(-1, 1) if warning and not active else 0
+        jitter = 0
         pts = [(x + jitter, y0 + h), (x + step + jitter, y0 + h), (x + step // 2 + jitter, y0 + h - height)]
         pygame.draw.polygon(surface, color, pts)
         if active:
@@ -1054,33 +1369,57 @@ def draw_heart(surface, x, y, size, color):
 
 
 def draw_hud(screen, lives, has_key, tape_count, name, message, message_timer, has_charge=False,
-             stamina=STAMINA_MAX, tired=False, battery=None):
+             stamina=STAMINA_MAX, tired=False, battery=None, artifact_count=0):
     for i in range(max_lives()):
         color = (210, 50, 60) if i < lives else (60, 40, 45)
         draw_heart(screen, 14 + i * 28, 12, 20, color)
     draw_text(screen, name, FONTS["mono_small"], (200, 195, 205), 14, 40)
+    if settings.get("active_title"):
+        title = FONTS["mono_small"].render("TITLE: " + settings["active_title"], True, (178, 157, 135))
+        screen.blit(title, title.get_rect(topright=(WIDTH - 14, 40)))
     draw_text(screen, "FILES: %d" % tape_count, FONTS["mono_small"], (200, 195, 205), 14, 60)
+    draw_text(screen, "RELICS: %d/3" % artifact_count, FONTS["mono_small"], (180, 170, 135), 14, 80)
     if has_key:
-        draw_text(screen, "KEY", FONTS["mono_small"], (235, 200, 70), 14, 80)
+        draw_text(screen, "KEY", FONTS["mono_small"], (235, 200, 70), 14, 100)
     if has_charge:
-        draw_text(screen, "CHARGED: touch the presence", FONTS["mono_small"], (140, 200, 255), 14, 100)
+        draw_text(screen, "CHARGED: touch the presence", FONTS["mono_small"], (140, 200, 255), 14, 120)
     if stamina < STAMINA_MAX:                         # the stamina bar only appears once you have used some
-        pygame.draw.rect(screen, (40, 36, 44), (14, 124, 80, 6))
+        pygame.draw.rect(screen, (40, 36, 44), (14, 144, 80, 6))
         bar_color = (200, 60, 60) if tired else (120, 200, 140)    # red = worn out, cannot run yet
-        pygame.draw.rect(screen, bar_color, (14, 124, int(80 * stamina / STAMINA_MAX), 6))
+        pygame.draw.rect(screen, bar_color, (14, 144, int(80 * stamina / STAMINA_MAX), 6))
     if battery is not None:                           # the flashlight battery (dark rooms only)
-        pygame.draw.rect(screen, (40, 36, 44), (14, 136, 80, 6))
+        pygame.draw.rect(screen, (40, 36, 44), (14, 156, 80, 6))
         low = battery < 20
-        pygame.draw.rect(screen, (230, 170, 60) if low else (230, 220, 140), (14, 136, int(80 * battery / BATTERY_MAX), 6))
+        pygame.draw.rect(screen, (230, 170, 60) if low else (230, 220, 140), (14, 156, int(80 * battery / BATTERY_MAX), 6))
     if message and message_timer > 0:
         color = mix((20, 20, 20), WHITE, min(1.0, message_timer / 30))
         draw_text(screen, message, FONTS["body"], color, WIDTH // 2, 90, center=True)
 
 
+def draw_boss_status(screen, monsters):
+    boss_names = {"doorstalker": "THE GLITCH", "beamer": "THE SIGNAL", "summoner": "THE COUNSEL",
+                  "guardian": "THE GATE", "warden": "THE RECORD", "secret_boss": "THE WITNESS"}
+    boss = next((m for m in monsters if m.kind in boss_names and not m.defeated), None)
+    if boss is None:
+        return
+    x, y = WIDTH - 190, 14
+    draw_text(screen, boss_names[boss.kind], FONTS["mono_small"], (202, 194, 190), x, y)
+    for i in range(boss.boss_hp_max):
+        rect = pygame.Rect(x, y + 23, 28, 7)
+        rect.x += i * 34
+        color = (180, 37, 43) if i < boss.boss_hp else (48, 33, 38)
+        pygame.draw.rect(screen, color, rect)
+        pygame.draw.rect(screen, (100, 81, 78), rect, 1)
+    if boss.kind == "warden":
+        draw_text(screen, "PHASE %d" % boss.phase, FONTS["mono_small"], (153, 111, 118), x, y + 34)
+    elif boss.vulnerable:
+        draw_text(screen, "EXPOSED", FONTS["mono_small"], (190, 205, 176), x, y + 34)
+
+
 def draw_darkness(surface, cx, cy, r, dense=False):
     """Darkness with a round hole of light around (cx, cy). Drawn as black stripes (no see-through layers).
     Far away it is two stripes in three, at the soft edge one in three, and inside the light nothing.
-    dense=True is used while hiding in a locker: almost everything is black."""
+    dense=True is used while hidden between frames: almost everything is black."""
     cx, cy = int(cx), int(cy)
     r_out = r * 1.5
     for y in range(0, HEIGHT, 2):
@@ -1111,17 +1450,37 @@ def draw_vignette(screen, amount):
     pygame.draw.rect(screen, BLACK, (0, HEIGHT - t // 2, WIDTH, t // 2))
 
 
-def draw_locker(surface, rect, frame, occupied):
-    """A tall metal locker. When you are inside, two eyes show through the slats."""
-    pygame.draw.rect(surface, (46, 48, 56), rect, border_radius=3)
-    pygame.draw.rect(surface, (20, 20, 26), rect, 2, border_radius=3)
+def draw_gap(surface, rect, frame, occupied):
+    """A narrow tear in the image. Entering it drops the player between recorded frames."""
+    pulse = 0.5 + 0.5 * math.sin(frame * 0.08)
+    col = (95 + int(pulse * 45), 20, 35)
+    pygame.draw.rect(surface, (8, 6, 12), rect.inflate(8, 4))
+    pygame.draw.line(surface, col, (rect.centerx - 2, rect.y), (rect.centerx + 1, rect.bottom), 2)
     for i in range(4):
-        y = rect.y + 10 + i * 5
-        pygame.draw.line(surface, (16, 16, 20), (rect.x + 6, y), (rect.right - 6, y), 1)
-    pygame.draw.circle(surface, (150, 140, 90), (rect.right - 7, rect.centery + 8), 2)
+        y = rect.y + 5 + i * 12
+        wobble = int(math.sin(frame * 0.13 + i) * 4)
+        pygame.draw.line(surface, (170, 165, 175), (rect.x - wobble, y), (rect.right + wobble, y - 3), 1)
     if occupied:
-        for dx in (-4, 4):
-            pygame.draw.rect(surface, (235, 235, 225), (rect.centerx + dx - 1, rect.y + 13, 3, 2))
+        pygame.draw.line(surface, (220, 215, 220), (rect.centerx - 4, rect.y + 12), (rect.centerx + 4, rect.y + 12), 2)
+
+
+def draw_audit_overlay(surface, frame, state, warning, scan):
+    """The Auditor's scan line sweeps the room after its audio/light warning."""
+    tint = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    strength = 26 if state == "warning" else 52
+    tint.fill((115, 0, 12, strength))
+    surface.blit(tint, (0, 0))
+    if state == "warning":
+        pulse = 0.5 + 0.5 * math.sin(frame * 0.24)
+        label = "AUDIT IN %d  /  ENTER THE GAP" % max(1, math.ceil(warning / FPS))
+        draw_text(surface, label, FONTS["mono"], (220, int(100 + 100 * pulse), 110), WIDTH // 2, 30, center=True)
+        y = 100 + (frame * 3) % 300
+        pygame.draw.line(surface, (160, 20, 30), (0, y), (WIDTH, y), 1)
+    else:
+        y = int((1 - scan / 72) * HEIGHT)
+        pygame.draw.rect(surface, (180, 15, 28), (0, y - 5, WIDTH, 10))
+        pygame.draw.line(surface, (245, 125, 120), (0, y), (WIDTH, y), 2)
+        draw_text(surface, "RECORDING SUBJECT", FONTS["mono_small"], (235, 190, 190), WIDTH // 2, 30, center=True)
 
 
 def draw_note(surface, rect, frame):
@@ -1143,6 +1502,20 @@ def draw_battery(surface, rect, frame):
     pygame.draw.rect(surface, (180, 240, 190), rect, 2, border_radius=3)
     pygame.draw.rect(surface, (180, 240, 190), (cx - 3, rect.y - 3, 6, 3))
     pygame.draw.rect(surface, (230, 255, 235), (cx - 2, cy - 5, 4, 10))
+
+
+def draw_artifact(surface, artifact, frame):
+    """Draws one of the three evidence pieces that can expose the sealed room."""
+    rect = artifact["rect"]
+    pulse = 0.55 + 0.45 * math.sin(frame * 0.11)
+    colors = {"bell_clapper": (212, 174, 92), "sealed_writ": (165, 70, 74),
+              "negative_frame": (117, 174, 190)}
+    color = colors.get(artifact.get("id"), (190, 180, 145))
+    visuals.add_glow(surface, rect.centerx, rect.centery, int(24 + pulse * 7), tuple(c // 5 for c in color))
+    pygame.draw.rect(surface, (13, 11, 15), rect.inflate(4, 4), border_radius=3)
+    pygame.draw.rect(surface, color, rect, border_radius=2)
+    pygame.draw.rect(surface, (235, 225, 202), rect, 1, border_radius=2)
+    pygame.draw.line(surface, (25, 20, 24), (rect.x + 5, rect.y + 6), (rect.right - 5, rect.y + 6), 2)
 
 
 def draw_unlisted_figure(surface, cx, by, frame):
@@ -1320,8 +1693,9 @@ def show_controls(screen, clock):
         "MOVE     Arrow keys  or  A / D",
         "RUN      Hold Shift (uses stamina, and it is LOUD)",
         "JUMP     Space, Up, or W  (hold = higher)",
-        "HIDE     Down / S / E at a locker (again = leave)",
+        "HIDE     Down / S / E in a footage gap (again = leave)",
         "PAUSE    Esc",
+        "SKIP     Tab with the <dev> title equipped",
         "READ     Walk into a cassette or a note",
         "",
         "GOAL     Find the KEY, then reach the DOOR.",
@@ -1388,6 +1762,61 @@ def show_settings(screen, clock, backdrop=None, tape_no=1):
                 3: ""}[selected]
         draw_menu_frame(screen, "SETTINGS", options, selected, hint, backdrop, frame)
         present(screen, tape_no)
+        clock.tick(FPS)
+
+
+def show_titles(screen, clock):
+    """Equip one of the run titles the player has recovered."""
+    unlocked = settings["unlocked_titles"]
+    if not unlocked:
+        run_menu(screen, clock, "RECOVERED TITLES", ["Back"],
+                 "No titles recovered yet. Clear rooms and find story files.")
+        return
+    selected = unlocked.index(settings["active_title"]) if settings["active_title"] in unlocked else 0
+    labels = [("* " if title == settings["active_title"] else "  ") + title for title in unlocked] + ["Back"]
+    frame = 0
+    while True:
+        frame += 1
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quit_game()
+            elif event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_UP, pygame.K_w):
+                    selected = (selected - 1) % len(labels)
+                    sound.play("click")
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    selected = (selected + 1) % len(labels)
+                    sound.play("click")
+                elif event.key in CONFIRM_KEYS:
+                    sound.play("click")
+                    if selected < len(unlocked):
+                        settings["active_title"] = unlocked[selected]
+                        save_settings()
+                    return
+                elif event.key == pygame.K_ESCAPE:
+                    return
+        description = (TITLE_REWARDS[unlocked[selected]] if selected < len(unlocked)
+                       else "%d title(s) recovered. Select one to wear." % len(unlocked))
+        draw_menu_frame(screen, "RECOVERED TITLES", labels, selected, description, None, frame)
+        present(screen, 1)
+        clock.tick(FPS)
+
+
+def show_title_recovered(screen, clock, title):
+    """A quick VHS-style card for a newly earned title; any confirm key dismisses it early."""
+    for frame in range(72):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                quit_game()
+            if event.type == pygame.KEYDOWN and event.key in CONFIRM_KEYS + (pygame.K_ESCAPE,):
+                return
+        visuals.menu_background(screen, frame)
+        draw_text(screen, "TITLE RECOVERED", FONTS["mono"], (175, 168, 177), WIDTH // 2, 174, center=True)
+        color = (225, 210, 180) if frame % 8 < 6 else (130, 35, 42)
+        draw_text(screen, title, FONTS["big"], color, WIDTH // 2, 225, center=True)
+        draw_text(screen, "Equip it from RECOVERED TITLES", FONTS["mono_small"], (120, 112, 125),
+                  WIDTH // 2, 294, center=True)
+        present(screen, 1)
         clock.tick(FPS)
 
 
@@ -1587,13 +2016,14 @@ def show_ending(screen, clock, collected):
     visuals.jumpscare_sequence(screen, clock, frames=22, big=True)   # the tape pretends to end, then does not
     sound.play("chapter_complete")
     lines = ["END OF RECORDING", "", "Files recovered: %d" % len(collected), "",
-             "Additional footage is still being logged.", "", "It always is.", "", "A game by Karman"]
+             "SUBJECT COPY: INCOMPLETE", "", "The voice on the monitor was never the Guide.", "",
+             "A game by Karman"]
 
     def draw(frame):
         screen.fill((4, 3, 6))
         for i, line in enumerate(lines):
             font = FONTS["title"] if i == 0 else FONTS["mono"]
-            color = WHITE if i == 0 else ((150, 30, 30) if line == "It always is." else (190, 185, 195))
+            color = WHITE if i == 0 else ((150, 30, 30) if line == "SUBJECT COPY: INCOMPLETE" else (190, 185, 195))
             draw_text(screen, line, font, color, WIDTH // 2, 120 + i * 40, center=True)
 
     draw(0)
@@ -1623,9 +2053,9 @@ def show_ending_choice(screen, clock):
         screen.fill((236, 238, 240))
         draw_monitor_line(screen, ((frame - 45) % 90) * 9, 300, (120, 150, 130))
         if frame > 30:
-            draw_text(screen, "You can still hear it.", FONTS["big"], (70, 70, 78), WIDTH // 2, 170, center=True, shadow=None)
+            draw_text(screen, "They are still in there.", FONTS["big"], (70, 70, 78), WIDTH // 2, 170, center=True, shadow=None)
         if frame > 90:
-            for i, label in enumerate(("STAY", "LET GO")):
+            for i, label in enumerate(("STAY WITH THEM", "LET GO")):
                 x = 280 + i * 240
                 if i == selected:
                     draw_text(screen, "> %s <" % label, FONTS["big"], (150, 40, 40), x, 400, center=True, shadow=None)
@@ -1686,7 +2116,7 @@ def show_credits(screen, clock):
 # ==================================================================
 # 7. PLAY_ROOM  -  the heart of the game
 # ==================================================================
-def play_room(screen, clock, room, index, lives, collected):
+def play_room(screen, clock, room, index, lives, collected, collected_artifacts=None):
     """
     Plays one room until something ends it.
     Returns (result, lives) where result is 'escaped', 'dead' or 'menu'.
@@ -1694,7 +2124,8 @@ def play_room(screen, clock, room, index, lives, collected):
     chapter = chapter_info(room)
     chap_no = chapter_number(room)
     difficulty = chapter.get("difficulty", 1.0)
-    plan = plan_extras(room, index)                # where the locker, note, battery and secret wall go in this room
+    collected_artifacts = collected_artifacts if collected_artifacts is not None else []
+    plan = plan_extras(room, index, collected_artifacts)
     room_no = plan["room_no"]
     safe = plan["safe"]
     dark = plan["dark"]
@@ -1722,17 +2153,22 @@ def play_room(screen, clock, room, index, lives, collected):
         tape_rect = pygame.Rect(room["scroll_pos"][0], room["scroll_pos"][1], TAPE_W, TAPE_H)
     tape_taken = tape_rect is None or tape_text in collected
     monsters = build_monsters(room, difficulty, index, strip=safe)
-    minion_life_left = {}                          # id(monster) -> frames left, for summoner-spawned minions
     projectiles = []            # each is a dict: x, y, vx, size
 
     # --- Extras for this room ---
-    hide_spot = plan["hide"]                       # a locker (or None)
+    hide_spot = plan["hide"]                       # a footage gap (or None)
     hidden = False
     found_timer = 0
+    audit_state = "idle"
+    audit_timer = random.randint(840, 1080)
+    audit_warning = 0
+    audit_scan = 0
+    audit_hit = False
     note = plan["note"]                            # {"rect", "text"} or None
     note_taken = note is None or note["text"] in collected
     battery_item = plan["battery"]
     battery_taken = False
+    artifact = plan["artifact"]
     secret = plan["secret"]
     secret_found = secret is not None and room_no in settings["secrets"]
     secret_open = 1.0 if secret_found else 0.0
@@ -1744,7 +2180,6 @@ def play_room(screen, clock, room, index, lives, collected):
     if plan["hush"]:
         hush = {"x": 700.0 if PLAYER_W + room["player_start"][0] < WIDTH // 2 else 100.0, "dir": 0, "fade": 0.0}
         hush["dir"] = -1 if hush["x"] > WIDTH // 2 else 1
-    caller_cooldown = 0
     if safe:
         lives = max_lives()                        # a quiet room: rest
         RUN["battery"] = BATTERY_MAX
@@ -1768,6 +2203,8 @@ def play_room(screen, clock, room, index, lives, collected):
         key_rect = pygame.Rect(-300, -300, KEY_SIZE, KEY_SIZE)   # parked off-screen until the boss drops it
     charge_rect = pygame.Rect(room["charge_item"][0], room["charge_item"][1], 26, 26) if room.get("charge_item") else None
     charge_taken = charge_rect is None
+    charge_respawn_timer = 0
+    warning_flicker = 0
     invincible = 0
     knock_vx = 0
     knock_frames = 0
@@ -1787,7 +2224,9 @@ def play_room(screen, clock, room, index, lives, collected):
     is_boss_room = bool(room.get("boss_intro"))
     if first_time_kinds or entering_final_tape or is_boss_room:
         sound.play("shriek")
-        visuals.jumpscare_sequence(screen, clock, frames=22 if is_boss_room else 18, big=True)
+        scare_boss = next((m.kind for m in monsters if m.kind in ("doorstalker", "beamer", "summoner", "guardian", "warden", "secret_boss")), None)
+        visuals.jumpscare_sequence(screen, clock, frames=22 if is_boss_room else 18, big=True,
+                                   boss_kind=scare_boss if is_boss_room else None)
     if is_boss_room and room.get("boss_lore"):
         show_boss_lore(screen, clock, [tuple(e) for e in room["boss_lore"]], chap_no)
     # Glitchy picture is ONLY for boss fights: add "boss": "mini" or "boss" to a room in rooms.json
@@ -1796,17 +2235,26 @@ def play_room(screen, clock, room, index, lives, collected):
     while True:
         frame += 1
         forced_hit = None                        # set when something catches you outside the normal hit checks
+        fatal_hit = False                        # the Auditor ends a run as soon as its scan verifies you
+        warning_flicker = max(0, warning_flicker - 1)
+        warning_alarm_played = False
+        if charge_respawn_timer > 0:
+            charge_respawn_timer -= 1
+            if charge_respawn_timer == 0 and charge_rect is not None:
+                charge_taken = False
         jumped = False
-        loud_now = False
 
         # ---------- 1. Events ----------
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 quit_game()
             elif event.type == pygame.KEYDOWN:
-                if event.key in JUMP_KEYS:
+                if event.key == pygame.K_TAB and settings.get("active_title") == "<dev>":
+                    sound.play("static")
+                    return "skip", lives
+                elif event.key in JUMP_KEYS:
                     jump_buffer = JUMP_BUFFER_FRAMES
-                    hidden = False               # jumping out of a locker
+                    hidden = False               # jumping out of the footage gap
                 elif event.key == pygame.K_ESCAPE:
                     if show_pause_menu(screen, clock, chap_no, collected, world) == "menu":
                         return "menu", lives
@@ -1831,7 +2279,7 @@ def play_room(screen, clock, room, index, lives, collected):
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             move += 1
         if hidden and move:
-            hidden = False                           # walking out of a locker
+            hidden = False                           # walking out of the footage gap
         if hidden:
             move = 0                                 # hiding means standing perfectly still
         if escaping:
@@ -1845,11 +2293,11 @@ def play_room(screen, clock, room, index, lives, collected):
         shift = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
         running = bool(move) and bool(shift) and stamina > 0 and not tired
         if running:
-            stamina -= STAMINA_DRAIN
+            stamina -= STAMINA_DRAIN * (0.78 if title_active("FIRST FOOTAGE") else 1.0)
             if stamina <= 0:
                 stamina, tired = 0.0, True           # worn out: cannot run again until stamina recovers
         else:
-            stamina = min(STAMINA_MAX, stamina + STAMINA_REGEN)
+            stamina = min(STAMINA_MAX, stamina + STAMINA_REGEN * (1.45 if title_active("STILL HERE") else 1.0))
             if tired and stamina >= STAMINA_RECOVER:
                 tired = False
 
@@ -1857,7 +2305,6 @@ def play_room(screen, clock, room, index, lives, collected):
         # Each noise is a little record (where, how far it carries, how long it lasts) so a creature can check it later.
         if running and frame % 10 == 0:
             noise_events.append({"x": player.centerx, "y": player.centery, "radius": NOISE_RUN, "life": NOISE_LIFE})
-            loud_now = True
         elif move and not running and frame % 24 == 0:
             noise_events.append({"x": player.centerx, "y": player.centery, "radius": NOISE_WALK, "life": NOISE_LIFE})
         for n in noise_events:
@@ -1933,7 +2380,7 @@ def play_room(screen, clock, room, index, lives, collected):
                     break
 
         sprite.update(player, vel_y, on_ground, move, facing, invincible, frame,
-                      particles if PLAYER_PUFFS else _NO_PARTICLES)
+                      particles if PLAYER_PUFFS else _NO_PARTICLES, running=running)
 
         # Fell into a pit?
         if player.top > HEIGHT + 10:
@@ -1949,52 +2396,35 @@ def play_room(screen, clock, room, index, lives, collected):
             message, message_timer = "WATCH YOUR STEP", 70
 
         # ---------- 3. Monsters and projectiles ----------
-        pending_spawns = []
+        for trap in traps:
+            warning_now = trap_warning(trap, frame)
+            if warning_now and not trap.get("alarm_active", False):
+                warning_flicker = max(warning_flicker, 55)
+                if not warning_alarm_played:
+                    sound.play("alarm")
+                    warning_alarm_played = True
+            trap["alarm_active"] = warning_now
         for m in monsters:
             for name in m.update(player, projectiles, hidden, noise_events):
-                sound.play(name)
+                if name == "telegraph":
+                    if not warning_alarm_played:
+                        sound.play("alarm")
+                        warning_alarm_played = True
+                    warning_flicker = max(warning_flicker, 66)
+                else:
+                    sound.play(name)
                 if name == "shoot":
                     particles.burst(m.rect.centerx, m.rect.centery, 8, (150, 240, 150), speed=2.2, life=18, size=3, gravity=0)
                 elif name == "wake":
                     particles.burst(m.rect.centerx, m.rect.centery, 10, (190, 80, 220), speed=2.0, life=24, size=3)
                     scare_flash = 10
                     sound.play("shriek")
-                elif name == "summon":
-                    pending_spawns.append(m)
             if m.kind == "warden" and m.just_entered_phase:
                 scare_flash = 14
                 sound.play("shriek")
                 particles.burst(m.rect.centerx, m.rect.centery, 36, (210, 70, 70), speed=3.4, life=36, size=4)
                 if m.just_entered_phase == 3:
                     collapse_timer = 1          # start dropping platforms on the very next frame
-        # The Caller also answers NOISE: a loud step calls in one minion (then it has to wait a moment).
-        caller_cooldown = max(0, caller_cooldown - 1)
-        if loud_now and caller_cooldown == 0:
-            alive = sum(1 for mm in monsters if getattr(mm, "is_minion", False))
-            for m in monsters:
-                if m.kind == "summoner" and not m.defeated and alive < 4:
-                    pending_spawns.append(m)
-                    caller_cooldown = 150
-                    sound.play("summon")
-                    break
-        for boss in pending_spawns:
-            minion = Monster({"kind": "chaser", "x": boss.x, "y": boss.y, "size": 24, "color": [120, 40, 130],
-                              "speed": boss.minion_speed, "detect_radius": 999, "sleep_radius": 1200})
-            minion.awake = True                    # minions come out already alert, no sneaking past them
-            minion.is_minion = True
-            monsters.append(minion)
-            minion_life_left[id(minion)] = boss.minion_life
-            particles.burst(boss.rect.centerx, boss.rect.centery, 12, (190, 80, 220), speed=2.2, life=26, size=3)
-        for mid in list(minion_life_left):
-            minion_life_left[mid] -= 1
-        expired = {mid for mid, t in minion_life_left.items() if t <= 0}
-        if expired:
-            for m in monsters:
-                if id(m) in expired:
-                    particles.burst(m.rect.centerx, m.rect.centery, 8, (150, 80, 180), speed=1.6, life=20, size=2)
-            monsters[:] = [m for m in monsters if id(m) not in expired]
-            for mid in expired:
-                del minion_life_left[mid]
         if collapse_timer > 0:                     # the Warden's arena falling apart, one platform at a time
             collapse_timer -= 1
             if collapse_timer == 0 and collapse_queue:
@@ -2006,14 +2436,26 @@ def play_room(screen, clock, room, index, lives, collected):
                 if collapse_queue:
                     collapse_timer = 60
         for pr in projectiles:
+            turn_rate = pr.get("turn_rate", 0.0)
+            if turn_rate and not hidden:
+                cx = pr["x"] + pr["size"] / 2
+                cy = pr["y"] + pr["size"] / 2
+                target_angle = math.atan2(player.centery - cy, player.centerx - cx)
+                angle = math.atan2(pr.get("vy", 0.0), pr["vx"])
+                delta = (target_angle - angle + math.pi) % (2 * math.pi) - math.pi
+                angle += max(-turn_rate, min(turn_rate, delta))
+                speed = math.hypot(pr["vx"], pr.get("vy", 0.0))
+                pr["vx"], pr["vy"] = math.cos(angle) * speed, math.sin(angle) * speed
             pr["x"] += pr["vx"]
-        projectiles[:] = [pr for pr in projectiles if -30 < pr["x"] < WIDTH + 30]
+            pr["y"] += pr.get("vy", 0.0)
+        projectiles[:] = [pr for pr in projectiles
+                          if -30 < pr["x"] < WIDTH + 30 and -30 < pr["y"] < HEIGHT + 30]
 
-        # ---------- 3b. Extras: lockers, the flashlight, the Hush, the secret wall ----------
+        # ---------- 3b. Extras: footage gaps, the Auditor, flashlight, Hush, secret wall ----------
         if hide_spot is not None and not hidden and not escaping and message_timer == 0 and player.colliderect(hide_spot):
-            message, message_timer = "DOWN / S: HIDE", 45
+            message, message_timer = "DOWN / S: ENTER THE GAP", 45
         if hidden:
-            # A Designation that stands next to your locker too long finds you.
+            # A Designation that stands next to the gap too long finds you.
             near = any(m.kind in DESIGNATIONS and not m.defeated and
                        math.hypot(m.rect.centerx - hide_spot.centerx, m.rect.centery - hide_spot.centery) < 70
                        for m in monsters)
@@ -2022,9 +2464,31 @@ def play_room(screen, clock, room, index, lives, collected):
                 hidden = False
                 found_timer = 0
                 forced_hit = hide_spot.centerx
-                message, message_timer = "IT FOUND YOU.", 80
+                message, message_timer = "IT FOUND THE GAP.", 80
+        if plan["audit"] and not escaping:
+            if audit_state == "idle":
+                audit_timer -= 1
+                if audit_timer <= 0:
+                    audit_state, audit_warning, audit_hit = "warning", 120, False
+                    warning_flicker = max(warning_flicker, 96)
+                    if not warning_alarm_played:
+                        sound.play("alarm")
+                        warning_alarm_played = True
+            elif audit_state == "warning":
+                audit_warning -= 1
+                if audit_warning <= 0:
+                    audit_state, audit_scan = "scan", 72
+                    sound.play("manifest")
+            elif audit_state == "scan":
+                audit_scan -= 1
+                if not hidden and not audit_hit:
+                    forced_hit = player.centerx
+                    fatal_hit = True
+                    audit_hit = True
+                if audit_scan <= 0:
+                    audit_state, audit_timer = "idle", random.randint(1500, 2100)
         if dark and not escaping:
-            RUN["battery"] = max(0.0, RUN["battery"] - BATTERY_DRAIN)
+            RUN["battery"] = max(0.0, RUN["battery"] - BATTERY_DRAIN * (0.65 if title_active("BELOW THE RECORD") else 1.0))
         if hush is not None and not escaping:
             hush["x"] += hush["dir"] * HUSH_SPEED
             if hush["x"] < 40:
@@ -2058,36 +2522,93 @@ def play_room(screen, clock, room, index, lives, collected):
         # ---------- 4. Getting hit (and defeating a boss) ----------
         if escaping:
             pass                                     # no hits while the door is opening
-        elif invincible > 0:
+        elif invincible > 0 and not fatal_hit:
             invincible -= 1
         else:
             hit_from = None
             defeated = False
+            boss_finished = False
             for m in monsters:
                 if m.defeated or not player.colliderect(m.rect):
                     continue
                 if hidden and m.kind in DESIGNATIONS:
-                    continue                         # you are inside a locker: it walks right past you
+                    continue                         # you are between frames: it walks right past you
                 last_pos = m.rect.topleft
-                if m.kind in ("beamer", "summoner") and has_charge:
-                    m.defeated = True
+                if m.kind in ("doorstalker", "beamer", "summoner", "warden") and has_charge \
+                        and m.vulnerable and m.boss_hit_cooldown == 0:
+                    m.boss_hp -= 2 if title_active("NO EXIT") else 1
+                    m.boss_hit_cooldown = 45
                     has_charge = False
+                    defeated = True                  # the hit connected; do not damage the player too
+                    if m.kind == "doorstalker" and m.boss_hp > 0:
+                        m.state, m.timer = "hidden", 55
+                        m.x, m.y = -400.0, -400.0
+                        charge_respawn_timer = 105
+                    elif m.kind == "beamer" and m.boss_hp > 0:
+                        m.state, m.timer, m.exposed_timer = "idle", 70, 0
+                        charge_respawn_timer = 70
+                    elif m.kind == "summoner" and m.boss_hp > 0:
+                        m.exposed_timer = 0
+                        charge_respawn_timer = 70
+                    elif m.kind == "warden" and m.boss_hp > 0:
+                        m.exposed_timer = 0
+                        m.phase_timer = max(m.phase_timer, 75)
+                        charge_respawn_timer = 70
+                    if m.boss_hp <= 0:
+                        m.defeated = True
+                        boss_finished = True
+                    else:
+                        if m.kind == "warden" and m.phase == 3 and m.boss_hp <= 2:
+                            message, message_timer = "THE ROOM IS CLOSING IN", 120
+                        else:
+                            message, message_timer = "SIGNAL BROKEN  //  %d LEFT" % m.boss_hp, 100
+                        sound.play("boss_hit")
+                        vel_y = JUMP_SPEED * 0.55
+                        invincible = 45
+                elif m.kind in ("guardian", "secret_boss") and vel_y > 0 and player.bottom - m.rect.top < 18:
+                    vel_y = JUMP_SPEED * 0.55
                     defeated = True
-                elif m.kind == "guardian" and vel_y > 0 and player.bottom - m.rect.top < 18:
-                    m.defeated = True
-                    vel_y = JUMP_SPEED * 0.55        # a small bounce, like a stomp
-                    defeated = True
+                    if m.vulnerable and m.boss_hit_cooldown == 0:
+                        m.boss_hp -= 2 if title_active("NO EXIT") else 1
+                        m.boss_hit_cooldown = 48
+                        if m.boss_hp <= 0:
+                            m.defeated = True
+                            boss_finished = True
+                        else:
+                            if m.boss_hp == (3 if m.kind == "secret_boss" else 2) and not m.special_mode:
+                                m.special_mode = True
+                                m.timer = 65
+                                warning_flicker = max(warning_flicker, 90)
+                                scare_flash = 14
+                                sound.play("shriek")
+                                particles.burst(m.rect.centerx, m.rect.centery, 32,
+                                                (193, 93, 63), speed=3.0, life=35, size=4)
+                                message, message_timer = "DOUBLE VERDICT // JUMP BOTH WAVES", 150
+                            else:
+                                message, message_timer = "PLATE BROKEN  //  %d LEFT" % m.boss_hp, 100
+                            sound.play("boss_hit")
+                        invincible = 48
+                    else:
+                        # A stomp on its closed armor is safe, but it does not hurt the boss.
+                        invincible = max(invincible, 18)
                 else:
                     hit_from = m.rect.centerx
                 if defeated:
-                    sound.play("defeat")
+                    if not boss_finished and m.kind in ("guardian", "secret_boss"):
+                        particles.burst(last_pos[0] + m.w // 2, last_pos[1], 18,
+                                        (210, 190, 130), speed=2.8, life=32, size=3)
+                    if boss_finished:
+                        sound.play("defeat")
                     particles.burst(last_pos[0] + m.w // 2 if hasattr(m, "w") else last_pos[0],
                                     last_pos[1] + (m.h if hasattr(m, "h") else m.size) // 2,
-                                    30, (255, 225, 150), speed=3.5, life=40, size=4)
-                    if key_from_boss and not has_key:
+                                    30 if boss_finished else 16,
+                                    (255, 225, 150) if boss_finished else (225, 75, 80),
+                                    speed=3.5, life=40, size=4)
+                    if boss_finished and key_from_boss and not has_key:
                         key_rect.topleft = last_pos
                         message, message_timer = "THE PRESENCE IS GONE", 90
-                    invincible = pre["invincible"]
+                    if boss_finished:
+                        invincible = pre["invincible"]
                 break
             if not defeated and hit_from is None and not hidden:
                 for pr in projectiles:
@@ -2102,14 +2623,22 @@ def play_room(screen, clock, room, index, lives, collected):
                     if br is not None and player.colliderect(br):
                         hit_from = player.centerx        # a full-width beam has no meaningful "side"
                         break
+                    ar = m.attack_rect if hasattr(m, "attack_rect") else None
+                    if ar is not None and player.colliderect(ar):
+                        hit_from = ar.centerx
+                        break
             if not defeated and hit_from is None:
                 for t in traps:
                     if trap_active(t, frame) and player.colliderect(t["rect"]):
                         hit_from = t["rect"].centerx
                         break
             if not defeated and hit_from is None and forced_hit is not None:
-                hit_from = forced_hit                    # found in a locker, or caught moving in the Hush's silence
+                hit_from = forced_hit                    # found in a gap, audited, or caught in the Hush's silence
             if hit_from is not None:
+                if fatal_hit:
+                    sound.play("hit")
+                    visuals.jumpscare_sequence(screen, clock, frames=20, big=True)
+                    return "dead", 0
                 lives -= 1
                 invincible = pre["invincible"]
                 knock_vx = 7 if player.centerx >= hit_from else -7     # away from whatever hit us
@@ -2125,7 +2654,7 @@ def play_room(screen, clock, room, index, lives, collected):
         if charge_rect is not None and not charge_taken and player.colliderect(charge_rect):
             charge_taken = True
             has_charge = True
-            message, message_timer = "CHARGE RECOVERED", 90
+            message, message_timer = "CHARGE RECOVERED — STRIKE ON THE FLICKER", 90
             sound.play("pickup")
             particles.burst(charge_rect.centerx, charge_rect.centery, 16, (150, 210, 255), speed=2.6, life=32, size=3)
         if not has_key and player.colliderect(key_rect):
@@ -2139,6 +2668,19 @@ def play_room(screen, clock, room, index, lives, collected):
             message, message_timer = "BATTERY RECOVERED", 90
             sound.play("pickup")
             particles.burst(battery_item.centerx, battery_item.centery, 12, (150, 240, 170), speed=2.2, life=28, size=3)
+        if artifact is not None and player.colliderect(artifact["rect"]):
+            artifact_id = artifact["id"]
+            if artifact_id not in collected_artifacts:
+                collected_artifacts.append(artifact_id)
+            artifact = None
+            count = len(collected_artifacts)
+            message, message_timer = "RELIC RECOVERED  //  %d/3" % count, 110
+            sound.play("pickup")
+            particles.burst(player.centerx, player.centery, 20, (188, 174, 129), speed=2.8, life=34, size=3)
+            show_tape(screen, clock, artifact.get("text", artifact.get("name", "RELIC RECOVERED")), chap_no, world)
+            if count == len(ARTIFACTS):
+                message, message_timer = "THREE PIECES. A DOOR BELOW THE RECORDING OPENS.", 180
+                sound.play("manifest")
 
         if not tape_taken and player.colliderect(tape_rect):
             tape_taken = True
@@ -2176,7 +2718,7 @@ def play_room(screen, clock, room, index, lives, collected):
 
         # ---------- 6. Drawing ----------
         try:
-            bg.draw(world, frame, player.centerx)
+            bg.draw(world, frame, player.centerx, warning_flicker)
         except pygame.error:
             world.fill(tuple(chapter.get("sky", (20, 20, 30))))   # picture trouble: at least show a plain colored room
         for px, pw in pits:
@@ -2194,15 +2736,19 @@ def play_room(screen, clock, room, index, lives, collected):
         for mk in marks:
             draw_mark(world, mk, frame)
         if secret is not None:
+            if title_active("ARCHIVIST"):
+                visuals.add_glow(world, secret["panel"].centerx, secret["panel"].centery, 52, (43, 34, 21))
             draw_secret_panel(world, secret, secret_open, frame)
             if secret_found and secret_open >= 0.6 and not secret_note_taken:
                 draw_note(world, secret["note_rect"], frame)
         if hide_spot is not None:
-            draw_locker(world, hide_spot, frame, hidden)
+            draw_gap(world, hide_spot, frame, hidden)
         if note is not None and not note_taken:
             draw_note(world, note["rect"], frame)
         if battery_item is not None and not battery_taken:
             draw_battery(world, battery_item, frame)
+        if artifact is not None:
+            draw_artifact(world, artifact, frame)
         if boss_doors:
             active_stalker = next((m for m in monsters if m.kind == "doorstalker"), None)
             for i, d in enumerate(boss_doors):
@@ -2248,18 +2794,31 @@ def play_room(screen, clock, room, index, lives, collected):
                 visuals.draw_key(world, key_rect, frame)
             if battery_item is not None and not battery_taken:
                 draw_battery(world, battery_item, frame)
-        if hidden:                                        # inside a locker you can barely see anything
+        if hidden:                                        # inside a footage gap you can barely see anything
             draw_darkness(world, hide_spot.centerx, hide_spot.y + 16, 26, dense=True)
+        # The chandelier and room lights snap out in irregular bursts before an attack.
+        if warning_flicker and warning_flicker % 9 in (0, 1, 5):
+            draw_darkness(world, player.centerx, player.centery, 68, dense=True)
+        if artifact is not None and title_active("ARCHIVIST"):
+            visuals.add_glow(world, artifact["rect"].centerx, artifact["rect"].centery, 58, (55, 43, 25))
 
         offset = (random.randint(-4, 4), random.randint(-4, 4)) if shake > 0 else (0, 0)
         shake = max(0, shake - 1)
         screen.fill(BLACK)
         screen.blit(world, offset)
+        if is_boss_room:
+            boss = next((m for m in monsters if m.kind in ("doorstalker", "beamer", "summoner", "guardian", "warden", "secret_boss") and not m.defeated), None)
+            if boss is not None:
+                camera_phase = boss.phase if boss.kind == "warden" else 2 if getattr(boss, "special_mode", False) else 1
+                visuals.draw_surveillance_overlay(screen, frame, boss.kind, camera_phase)
         if hush is not None:
             draw_vignette(screen, hush["fade"] / HUSH_FADE_FRAMES)
+        if audit_state == "scan":
+            draw_audit_overlay(screen, frame, audit_state, audit_warning, audit_scan)
         message_timer = max(0, message_timer - 1)
         draw_hud(screen, lives, has_key, len(collected), plan["label"], message, message_timer, has_charge,
                  stamina, tired, RUN["battery"] if dark else None)
+        draw_boss_status(screen, monsters)
         if frame < 20:
             visuals.fade(screen, 255 - frame * 13)                   # fade in from black
         if escaping > 12:
@@ -2276,10 +2835,13 @@ def play_room(screen, clock, room, index, lives, collected):
 # ==================================================================
 # 8. RUN_GAME AND MAIN  -  the flow between rooms
 # ==================================================================
-def run_game(screen, clock, slot, start_index, lives, collected):
+def run_game(screen, clock, slot, start_index, lives, collected, collected_artifacts=None,
+             secret_boss_defeated=False):
     """Plays rooms one after another, starting at start_index (so saves can resume)."""
     analog.reset_timecode()
+    collected_artifacts = list(collected_artifacts or [])
     index = start_index
+    result = "escaped"
     while True:
         while index < len(ROOMS):
             room = ROOMS[index]
@@ -2288,7 +2850,7 @@ def run_game(screen, clock, slot, start_index, lives, collected):
             if is_first_in_chapter(index) and settings["chapter_intros"]:
                 show_chapter_intro(screen, clock, chap_no)
 
-            result, lives = play_room(screen, clock, room, index, lives, collected)
+            result, lives = play_room(screen, clock, room, index, lives, collected, collected_artifacts)
             analog.set_boss(0)               # back to a clean picture after any room
             sound.set_volume(settings["volume"] / 100)    # the Hush may have muted everything
 
@@ -2299,17 +2861,58 @@ def run_game(screen, clock, slot, start_index, lives, collected):
                     lives = max_lives()      # try this room again with full lives
                     continue
                 return
+            if result not in ("escaped", "skip"):
+                return
 
-            # The room was escaped!
+            # The room was cleared, or the private dev title skipped it.
+            was_cleared = result == "escaped"
             index += 1
             just_finished = index - 1
+            new_titles = []
+            if was_cleared:
+                if just_finished == 0 and unlock_title("FIRST FOOTAGE"):
+                    new_titles.append("FIRST FOOTAGE")
+                if len(collected) >= 3 and unlock_title("ARCHIVIST"):
+                    new_titles.append("ARCHIVIST")
+                if just_finished == 15 and unlock_title("THE HOUSE KNOWS"):
+                    new_titles.append("THE HOUSE KNOWS")
+                if is_last_in_chapter(just_finished) and chap_no == 0 and unlock_title("STILL HERE"):
+                    new_titles.append("STILL HERE")
+                if index < len(ROOMS) and chapter_number(ROOMS[index]) == len(CHAPTER_ORDER) - 1 \
+                        and unlock_title("BELOW THE RECORD"):
+                    new_titles.append("BELOW THE RECORD")
             if is_last_in_chapter(just_finished):
                 lives = max_lives()          # a new tape starts with full lives
-            write_save(slot, index, lives, collected)
+            write_save(slot, index, lives, collected, collected_artifacts, secret_boss_defeated)
+            for title in new_titles:
+                show_title_recovered(screen, clock, title)
             if is_last_in_chapter(just_finished):
                 show_chapter_complete(screen, clock, chap_no)
 
+        # The three pieces of evidence open an optional room beneath the final tape.
+        if (len(collected_artifacts) == len(ARTIFACTS) and SECRET_BOSS_ROOM is not None
+                and not secret_boss_defeated):
+            draw_menu_frame(screen, "UNSEALED", ["ENTER THE ROOM"], 0,
+                            "Three relics fit the frame. Something behind it is awake.", None, 0)
+            present(screen, len(CHAPTER_ORDER))
+            secret_result, lives = play_room(screen, clock, SECRET_BOSS_ROOM, len(ROOMS) - 1,
+                                             lives, collected, collected_artifacts)
+            if secret_result == "menu":
+                return
+            while secret_result == "dead":
+                if show_game_over(screen, clock, len(CHAPTER_ORDER) - 1) == 0:
+                    lives = max_lives()
+                    secret_result, lives = play_room(screen, clock, SECRET_BOSS_ROOM, len(ROOMS) - 1,
+                                                     lives, collected, collected_artifacts)
+                else:
+                    return
+            if secret_result == "escaped":
+                secret_boss_defeated = True
+                write_save(slot, len(ROOMS), lives, collected, collected_artifacts, True)
+
         # The Warden is done. The recording "ends", and then the real ending begins.
+        if result == "escaped" and unlock_title("NO EXIT"):
+            show_title_recovered(screen, clock, "NO EXIT")
         show_ending(screen, clock, collected)
         choice = show_ending_choice(screen, clock)
         settings["ending"] = choice
@@ -2318,7 +2921,8 @@ def run_game(screen, clock, slot, start_index, lives, collected):
             settings["loops"] += 1
             save_settings()
             index, lives, collected = 0, max_lives(), []
-            write_save(slot, 0, lives, collected)
+            collected_artifacts, secret_boss_defeated = [], False
+            write_save(slot, 0, lives, collected, collected_artifacts, secret_boss_defeated)
             analog.reset_timecode()
             continue
         save_settings()
@@ -2328,8 +2932,8 @@ def run_game(screen, clock, slot, start_index, lives, collected):
 
 
 def start_new_run(screen, clock, slot):
-    write_save(slot, 0, max_lives(), [])
-    run_game(screen, clock, slot, 0, max_lives(), [])
+    write_save(slot, 0, max_lives(), [], [], False)
+    run_game(screen, clock, slot, 0, max_lives(), [], [])
 
 
 def play_menu(screen, clock):
@@ -2351,7 +2955,8 @@ def play_menu(screen, clock):
                           ["Continue (Room %d)" % (save["room_index"] + 1), "Restart Run", "Back"],
                           "%d file(s) recovered so far." % len(save["collected_scrolls"]))
         if choice == 0:
-            run_game(screen, clock, slot, save["room_index"], min(save["lives"], max_lives()), save["collected_scrolls"])
+            run_game(screen, clock, slot, save["room_index"], min(save["lives"], max_lives()),
+                     save["collected_scrolls"], save["collected_artifacts"], save["secret_boss_defeated"])
         elif choice == 1:
             start_new_run(screen, clock, slot)
 
@@ -2359,7 +2964,12 @@ def play_menu(screen, clock):
 def setup():
     """Starts pygame, shows the loading bar, and loads everything."""
     pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.SCALED | pygame.RESIZABLE)
+    icon_path = os.path.join(RESOURCE_DIR, "assets", "hallowed_grounds_icon.png")
+    try:
+        pygame.display.set_icon(pygame.image.load(icon_path))
+    except (FileNotFoundError, pygame.error):
+        pass
     pygame.display.set_caption("Hallowed Grounds  (%s)" % BUILD)
     print("Hallowed Grounds running from:", os.path.abspath(__file__), "-", BUILD)
     clock = pygame.time.Clock()
@@ -2381,19 +2991,57 @@ def main():
         analog.set_level(0)
         analog.set_boss(0)
         subtitle = {"let_go": "NO FURTHER FOOTAGE", "stay": "A RECOVERED TAPE. AGAIN."}.get(settings["ending"], "A RECOVERED TAPE")
-        choice = run_menu(screen, clock, "HALLOWED GROUNDS", ["Play", "Controls", "Settings", "Quit"], subtitle)
+        choice = run_menu(screen, clock, "HALLOWED GROUNDS",
+                          ["Play", "Recovered Titles", "Controls", "Settings", "Quit"], subtitle)
         if choice == 0:
             play_menu(screen, clock)
         elif choice == 1:
-            show_controls(screen, clock)
+            show_titles(screen, clock)
         elif choice == 2:
-            show_settings(screen, clock)
+            show_controls(screen, clock)
         elif choice == 3:
+            show_settings(screen, clock)
+        elif choice == 4:
             quit_game()
+
+
+def smoke_check():
+    """Initializes the real game and renders one menu frame for release-build checks."""
+    screen, clock = setup()
+    draw_menu_frame(screen, "HALLOWED GROUNDS", ["Play", "Quit"], 0,
+                    "A RECOVERED TAPE", None, 1)
+    present(screen, 1)
+    pygame.display.flip()
+    pygame.quit()
+    print("Game startup and menu render: OK")
 
 
 if __name__ == "__main__":
     if "--check" in sys.argv:
         check_extras()
+    elif "--smoke" in sys.argv:
+        smoke_check()
     else:
-        main()
+        try:
+            main()
+        except Exception:
+            details = traceback.format_exc()
+            print(details, file=sys.stderr)
+            try:
+                os.makedirs(USER_DATA_DIR, exist_ok=True)
+                crash_path = os.path.join(USER_DATA_DIR, "crash.log")
+                with open(crash_path, "a", encoding="utf-8") as f:
+                    f.write("\n--- Hallowed Grounds crash ---\n")
+                    f.write(details)
+                if pygame.display.get_init() and hasattr(pygame.display, "message_box"):
+                    try:
+                        pygame.display.message_box(
+                            "Hallowed Grounds stopped",
+                            "The game saved an error report here:\n%s" % crash_path,
+                            "error",
+                        )
+                    except pygame.error:
+                        pass
+            except OSError:
+                pass
+            raise

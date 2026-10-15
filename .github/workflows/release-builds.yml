@@ -1,0 +1,97 @@
+name: Build Steam release candidates
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows-x64
+            runner: windows-latest
+          - target: linux-x64
+            runner: ubuntu-latest
+          - target: macos-arm64
+            runner: macos-26
+          - target: macos-intel
+            runner: macos-26-intel
+
+    defaults:
+      run:
+        working-directory: Manor Of Horrors
+
+    steps:
+      - name: Check out the game
+        uses: actions/checkout@v7
+
+      - name: Install Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install build tools
+        run: python -m pip install -r requirements-build.txt
+
+      - name: Smoke-test the source game
+        env:
+          SDL_VIDEODRIVER: dummy
+          HALLOWED_GROUNDS_DATA_DIR: ${{ runner.temp }}/hallowed-grounds-source-smoke
+        run: python manor.py --smoke
+
+      - name: Build native app
+        run: python build_release.py
+
+      - name: Smoke-test Windows app
+        if: runner.os == 'Windows'
+        env:
+          SDL_VIDEODRIVER: dummy
+          HALLOWED_GROUNDS_DATA_DIR: ${{ runner.temp }}/hallowed-grounds-app-smoke
+        run: ./dist/HallowedGrounds/HallowedGrounds.exe --smoke
+
+      - name: Smoke-test Linux app
+        if: runner.os == 'Linux'
+        env:
+          SDL_VIDEODRIVER: dummy
+          HALLOWED_GROUNDS_DATA_DIR: ${{ runner.temp }}/hallowed-grounds-app-smoke
+        run: ./dist/HallowedGrounds/HallowedGrounds --smoke
+
+      - name: Smoke-test macOS app
+        if: runner.os == 'macOS'
+        env:
+          SDL_VIDEODRIVER: dummy
+          HALLOWED_GROUNDS_DATA_DIR: ${{ runner.temp }}/hallowed-grounds-app-smoke
+        run: ./dist/HallowedGrounds.app/Contents/MacOS/HallowedGrounds --smoke
+
+      - name: Package Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-package | Out-Null
+          Compress-Archive -Path dist/HallowedGrounds -DestinationPath "release-package/HallowedGrounds-${{ matrix.target }}.zip"
+
+      - name: Package Linux app
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p release-package
+          tar -czf "release-package/HallowedGrounds-${{ matrix.target }}.tar.gz" -C dist HallowedGrounds
+
+      - name: Package macOS app
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p release-package
+          ditto -c -k --sequesterRsrc --keepParent dist/HallowedGrounds.app "release-package/HallowedGrounds-${{ matrix.target }}.zip"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Hallowed-Grounds-${{ matrix.target }}
+          path: Manor Of Horrors/release-package/*
+          if-no-files-found: error
+          retention-days: 14

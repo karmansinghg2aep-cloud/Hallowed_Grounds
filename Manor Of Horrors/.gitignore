@@ -2,3 +2,8 @@ data/saves/
 .DS_Store
 __pycache__/
 *.py[cod]
+.venv/
+build/
+dist/
+*.spec
+release-package/

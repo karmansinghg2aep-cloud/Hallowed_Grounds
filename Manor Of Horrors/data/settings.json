@@ -1,1 +1,21 @@
-{"volume": 30, "show_chapter_transitions": false}
+{
+  "volume": 100,
+  "chapter_intros": true,
+  "difficulty": "easy",
+  "subject_count": 22,
+  "loops": 1,
+  "ending": "let_go",
+  "secrets": [
+    3,
+    7,
+    11,
+    15,
+    21,
+    24
+  ],
+  "twist_done": true,
+  "unlocked_titles": [
+    "<dev>"
+  ],
+  "active_title": "<dev>"
+}

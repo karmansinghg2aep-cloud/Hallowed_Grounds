@@ -48,7 +48,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 01 [00:12] You have been selected for the Program. Walk forward. Do not look for the camera.",
+    "scroll": "TAPE 01 [00:12] SUBJECT INTAKE CONFIRMED. Follow the route marks. If the picture skips, do not step into the missing frame.",
     "scroll_pos": [
       80,
       430
@@ -256,7 +256,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 01 [02:41] A figure has entered frame. It is DESIGNATION 01. It has always been here. Do not greet it.",
+    "scroll": "TAPE 01 [02:41] DESIGNATION 01 is a recording of a subject who walked the same route until the tape wore through. It still follows the route. Do not greet it.",
     "scroll_pos": [
       70,
       380
@@ -593,8 +593,8 @@
       ]
     ],
     "key": [
-      380,
-      340
+      10,
+      10
     ],
     "door": [
       40,
@@ -606,7 +606,7 @@
       700,
       400
     ],
-    "scroll": "TAPE 01 [07:10] ANOMALY: UNLISTED. This entity has not been assigned a designation. It appears only in doorways. We do not know where it goes when it is not in one. When a door begins to glow, do not be in front of it.",
+    "scroll": "TAPE 01 [07:10] ANOMALY: THE GLITCH. It marks a door, then rushes across your last position twice. Dodge both passes; strike the keyhole after the second crash.",
     "scroll_pos": [
       730,
       400
@@ -616,10 +616,10 @@
         "kind": "doorstalker",
         "x": 0,
         "y": 0,
-        "telegraph": 42,
-        "manifest": 60,
-        "speed": 5.0,
-        "cooldown": 35
+        "telegraph": 36,
+        "manifest": 72,
+        "speed": 6.2,
+        "cooldown": 27
       }
     ],
     "boss": "boss",
@@ -638,14 +638,23 @@
         320
       ]
     ],
+    "charge_item": [
+      560,
+      420
+    ],
+    "key_from_boss": true,
     "boss_lore": [
       [
-        "RECOVERED LOG -- INTAKE",
-        "Entity first logged in a stairwell doorway. No one was found nearby. The door had not been opened from either side."
+        "CARPENTRY LOG -- NORTH WING",
+        "Elias Venn fitted every door in the north wing. After the flood, he bolted the rooms from outside. Three nights later, the knocks began coming from inside the walls."
       ],
       [
-        "REVIEW NOTE",
-        "We stopped assigning it a number after the third subject who saw it stopped answering to their own name."
+        "INCIDENT 09-B",
+        "Venn vanished during the renovation. His apron was found nailed to a door that had no hinges. The crew removed that door. It appeared again in the next room."
+      ],
+      [
+        "UNSIGNED",
+        "The first rush is a test. The second follows your new position. After it hits the far frame, the keyhole stays open long enough for one charge."
       ]
     ]
   },
@@ -703,7 +712,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 02 [04:40] This is DESIGNATION 01. It walks the same eleven steps it has always walked. Do not interrupt its count.",
+    "scroll": "TAPE 02 [04:40] DESIGNATION 01 repeats an escape route. It has not learned that the route ends here. Do not interrupt its count.",
     "scroll_pos": [
       270,
       350
@@ -927,7 +936,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 02 [09:03] DESIGNATION 02 is a disturbance in the signal shaped like a person. It rises and falls with the interference. Cross during a clean frame.",
+    "scroll": "TAPE 02 [09:03] DESIGNATION 02 forms where the signal loses a frame. A rising whine means it is choosing a place to fall. Move clear before the break.",
     "scroll_pos": [
       270,
       300
@@ -989,7 +998,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 02 [09:51] DESIGNATION 02 will occasionally drop to floor level. Do not be under it when the signal breaks.",
+    "scroll": "TAPE 02 [09:51] DESIGNATION 02 dives toward the last place it recorded you. The red tearing is the warning. Keep moving after it commits.",
     "scroll_pos": [
       90,
       440
@@ -1167,7 +1176,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 02 [11:20] DESIGNATION 01 and DESIGNATION 02 have been observed sharing a corridor. Neither is aware of the other. You should be aware of both.",
+    "scroll": "TAPE 02 [11:20] DESIGNATION 01 and 02 share this corridor. During an Auditor scan, enter the gap; neither creature can follow you between frames.",
     "scroll_pos": [
       90,
       440
@@ -1511,7 +1520,7 @@
       700,
       400
     ],
-    "scroll": "TAPE 02 [15:40] ANOMALY: THE PROJECTOR. It watches one row of this hall and, without warning at first, sends everything in that row back out as static. Do not approach while its screen is lit.",
+    "scroll": "TAPE 03 [15:40] ANOMALY: THE SIGNAL. Shelter at either wall while the bright stripe sweeps the center. When the projector stops and its lens turns pale, touch it.",
     "scroll_pos": [
       730,
       400
@@ -1536,12 +1545,16 @@
     "key_from_boss": true,
     "boss_lore": [
       [
-        "RECOVERED LOG",
-        "Before it was called the Projector, it was a television left running in an empty room, on a loop no one here made."
+        "PROJECTION BOOTH LOG",
+        "Mara Doss was assigned to restore the manor fire-drill reel. Every repaired copy showed the booth eleven seconds later than the last. Mara stopped appearing in the room, but kept appearing on the film."
       ],
       [
-        "REVIEW NOTE",
-        "It does not record what it sees. It only shows what is already there, slightly late."
+        "REEL 09 -- FRAME 288",
+        "The figure on screen is standing behind the camera. The camera is bolted to the booth wall. There is no door behind it."
+      ],
+      [
+        "MARGIN NOTE",
+        "The beam is not burning the room. It is exposing the next frame over this one. When the feed runs out, the lens has to cool. That is the only time it can see you."
       ]
     ]
   },
@@ -1597,7 +1610,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 03 [15:21] DESIGNATION 03 presents as dormant. It is not sleeping. It is waiting for a reason. Do not give it one.",
+    "scroll": "TAPE 03 [15:21] DESIGNATION 03 is a subject who stopped moving so completely that the recording filed them as furniture. Proximity wakes the body. Distance is your only warning.",
     "scroll_pos": [
       220,
       350
@@ -1667,7 +1680,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 03 [19:48] DESIGNATION 04 does not move. It records. It transmits what it records back to us. Stay out of frame.",
+    "scroll": "TAPE 03 [19:48] DESIGNATION 04 records the room and sends its image back to the building. When it turns toward you, it has already made a copy of your position.",
     "scroll_pos": [
       90,
       430
@@ -1799,7 +1812,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 03 [21:55] DESIGNATION 03 moves slower than an average intake subject. This has been confirmed. Do not confirm it personally.",
+    "scroll": "TAPE 03 [21:55] DESIGNATION 03 moves slower than an average intake subject. When the Auditor begins its red sweep, stillness inside a footage gap is the only safe answer.",
     "scroll_pos": [
       100,
       440
@@ -2452,7 +2465,7 @@
       700,
       400
     ],
-    "scroll": "TAPE 03 [29:40] ANOMALY: THE CALLER. It does not act directly. It waits, and it calls something else in. What answers does not last long, but it does not need to.",
+    "scroll": "TAPE 03 [29:40] ANOMALY: THE COUNSEL. Jump clear of the red court seal before the gavel falls. Every third ruling, dodge her three-paper volley. Touch her while she recovers.",
     "scroll_pos": [
       730,
       400
@@ -2463,9 +2476,7 @@
         "x": 380,
         "y": 404,
         "size": 52,
-        "summon_interval": 150,
-        "minion_life": 170,
-        "minion_speed": 1.3
+        "verdict_interval": 150
       }
     ],
     "boss": "boss",
@@ -2477,12 +2488,16 @@
     "key_from_boss": true,
     "boss_lore": [
       [
-        "RECOVERED LOG",
-        "It was found with its arms raised, before anyone heard it make a sound. We do not know what it is calling. Only that something answers."
+        "COURT TRANSCRIPT -- CASE 13",
+        "Ada Mercer defended the residents the manor erased from its records. Her final case had no client, no judge, and no exit from the courtroom."
       ],
       [
-        "REVIEW NOTE",
-        "What it calls in does not outlast it by much. That has not made it easier to be near."
+        "OBJECTION OVERRULED",
+        "Mercer died at the bench while appealing the manor's verdict. Her next argument appeared in the transcript the following morning, in handwriting no one recognized."
+      ],
+      [
+        "BAILIFF'S NOTE",
+        "A red seal marks where the accused stood. The gavel hits that spot after the warning. Jump clear, then approach while the Counsel catches her breath."
       ]
     ]
   },
@@ -2576,7 +2591,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 04 [22:47] You are now below the level shown on your intake map. Please disregard your intake map.",
+    "scroll": "TAPE 04 [22:47] This floor is assembled from rooms removed from earlier tapes. The gaps are real. The doors are copied. Your route has been filed before you walk it.",
     "scroll_pos": [
       120,
       380
@@ -3019,7 +3034,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 04 [23:01] DESIGNATION 02 and DESIGNATION 04 have begun operating together. One moves. One watches. We did not program this.",
+    "scroll": "TAPE 04 [21:38] The image has narrow gaps where the recorder failed to agree with itself. Step into one when the Auditor announces a scan. Stay still until the sweep passes.",
     "scroll_pos": [
       120,
       380
@@ -3520,7 +3535,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 04 [19:33] There is no marked exit from this floor. There is only the next room. This has been true the entire time.",
+    "scroll": "TAPE 04 [19:33] There is no marked exit from this floor. There is only the next room. The doors are copied from routes taken by earlier subjects.",
     "scroll_pos": [
       110,
       380
@@ -3698,7 +3713,7 @@
       700,
       400
     ],
-    "scroll": "TAPE 04 [26:50] ANOMALY: THE GUARDIAN. Plated. Slow. It does not react to being approached from directly above. We have no explanation for why that is the one place it does not defend.",
+    "scroll": "TAPE 04 [26:50] ANOMALY: THE GATE. Watch for the raised crown. Jump over the shockwave after its slam, then stomp the open crown. At two plates, it slams twice.",
     "scroll_pos": [
       730,
       400
@@ -3720,12 +3735,20 @@
     "boss_intro": true,
     "boss_lore": [
       [
-        "RECOVERED LOG",
-        "It has never left this room. It has never reacted to anyone who approached from above. We do not know why."
+        "NIGHT GATE SHIFT BOOK",
+        "Hollis Reed guarded the sealed west exit. His notes list every person turned away, though the exit had been bricked up before he took the job."
       ],
       [
-        "REVIEW NOTE",
-        "Early staff assumed it was guarding something. The room has always been empty."
+        "INCIDENT REPORT -- 4TH KNOCK",
+        "The Gate raised its crown, then struck the floor hard enough to send a shockwave across the corridor. Its crown opened after the impact."
+      ],
+      [
+        "ENGINEERING MARGIN",
+        "The latch is inside the shell. Jump the shockwave and stomp the open crown. With two plates left, the Gate slams twice before it stays open."
+      ],
+      [
+        "RESERVE LATCH -- DO NOT TEST",
+        "The reserve spring loads after the first impact. The second slam sends a faster shockwave; jump again, then reach the open crown."
       ]
     ],
     "key_from_boss": true
@@ -3900,7 +3923,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 05 [--:--] [TIMECODE ERROR] The walls hold on to things the residents cannot. That was never meant as a threat. It was meant kindly.",
+    "scroll": "TAPE 05 [--:--] The voices on this tape belong to subjects who chose STAY. They are not guiding you out. They are trying to keep you company in the room where they remained.",
     "scroll_pos": [
       120,
       380
@@ -4028,7 +4051,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 05 [--:--] Designations 01 through 04 were never four separate recordings. We edited them to look that way. We are sorry.",
+    "scroll": "TAPE 05 [--:--] DESIGNATION 05 is not a fifth subject. It is the recording trying to reproduce you from incomplete evidence. During an Auditor scan, hide in the gap and let the copy pass.",
     "scroll_pos": [
       110,
       380
@@ -4263,7 +4286,7 @@
       732,
       400
     ],
-    "scroll": "TAPE 05 [--:--] Continue. This is the same room as before. It has always been the same room. Continue anyway.",
+    "scroll": "TAPE 05 [--:--] Designations 01 through 04 are not separate species. Each preserves one response from an earlier subject: flee, fall, freeze, watch. The Program separated them so you would think they were alone.",
     "scroll_pos": [
       664,
       380
@@ -4371,7 +4394,7 @@
       740,
       400
     ],
-    "scroll": "TAPE 05 [--:--] You keep finding a door. It is never the correct one. We do not know how many more there are.",
+    "scroll": "TAPE 05 [--:--] Beneath the recording is a steady sound. It is not a machine in the house. It is the monitor of the subject whose memories the Program has been using.",
     "scroll_pos": [
       650,
       380
@@ -4483,7 +4506,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 05 [--:--] Please slow your breathing to match the sound underneath this tape. It will be easier that way.",
+    "scroll": "TAPE 05 [--:--] The Auditor is the building checking whether its copy matches the living subject. The red scan is the warning. The footage gap is the only place it cannot verify.",
     "scroll_pos": [
       140,
       380
@@ -4685,7 +4708,7 @@
       40,
       400
     ],
-    "scroll": "TAPE 05 [--:--] [TIMECODE ERROR] Listen. Under the recording. Under everything we have shown you tonight. There is a steady sound. It has been there since Tape 01.",
+    "scroll": "TAPE 05 [--:--] The Warden is the sum of every attempt to leave, including the ones the record says never happened. There is no guidance for what happens next. Proceed anyway.",
     "scroll_pos": [
       80,
       380
@@ -4732,8 +4755,8 @@
       ]
     ],
     "key": [
-      450,
-      120
+      10,
+      10
     ],
     "door": [
       730,
@@ -4768,25 +4791,30 @@
       40,
       400
     ],
-    "scroll": "TAPE 05 [--:--] The Warden was never given a number. There is no guidance for what happens next. Please proceed anyway.",
+    "scroll": "TAPE 05 [--:--] ANOMALY: THE RECORD. Avoid its shots. When it chases you and its core opens, strike it. The arena will lose platforms as the fight continues.",
     "scroll_pos": [
       100,
       380
     ],
     "boss": "boss",
     "boss_intro": true,
+    "charge_item": [
+      270,
+      300
+    ],
+    "key_from_boss": true,
     "boss_lore": [
       [
-        "RECOVERED LOG -- FINAL ENTRY",
-        "The Warden was never completed as its own Designation. Pieces of all four were used, because there was no time left to build a fifth."
+        "LEDGER OFFICE -- FINAL ENTRY",
+        "Nell Rusk recorded each test subject as RECOVERED or NOT RECOVERED. She never used names. On the last page, someone had written her name under both columns."
       ],
       [
-        "REVIEW NOTE",
-        "It is the only thing in this building we did not make on purpose."
+        "CARBON COPY 53",
+        "Rusk died before the final test. The next morning her handwriting appeared in the ledger again. Each new line was a different hand, but all of them wrote the same room number."
       ],
       [
-        "UNSIGNED",
-        "If you are reading this, the tape is still running. That was not supposed to be possible."
+        "UNSIGNED -- DO NOT FILE",
+        "The Record is not a guard. It is the act of counting what the house failed to keep. Every time it says your number, another old attempt moves inside its coat."
       ]
     ],
     "collapse_platforms": [

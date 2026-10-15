@@ -172,6 +172,11 @@ def _build_sfx():
     # Boss: a low creaking warning right before a door-frame activates
     _add("telegraph", _mix([(0.0, _sweep(160, 240, 0.4, 2.0, 0.4, "square")),
                             (0.0, _noise(0.4, 0.12, 5, seed=11))]), 0.6)
+    # A much louder burst of distorted feedback replaces quiet warning beeps.
+    _add("alarm", _mix([(0.0, _sweep(75, 920, 0.62, 1.2, 0.7, "square")),
+                         (0.0, _sweep(120, 58, 0.72, 1.8, 0.75)),
+                         (0.0, _noise(0.55, 0.65, 2.4, seed=41)),
+                         (0.18, _sweep(680, 110, 0.35, 2.5, 0.55, "square"))]), 1.0)
     # Boss: a hard slam the instant the figure steps out and dashes
     _add("manifest", _mix([(0.0, _sweep(90, 40, 0.18, 5, 0.8)),
                            (0.0, _noise(0.12, 0.5, 8, seed=12))]), 0.9)
@@ -183,6 +188,9 @@ def _build_sfx():
     _add("defeat", _mix([(0.0, _bell(523, 0.7, 0.4, 3.0)), (0.10, _bell(659, 0.7, 0.4, 3.0)),
                          (0.20, _bell(784, 0.9, 0.45, 2.6)), (0.30, _bell(1047, 1.2, 0.5, 2.2)),
                          (0.0, _noise(0.35, 0.3, 6, seed=14))]), 1.0)
+    _add("boss_hit", _mix([(0.0, _sweep(170, 48, 0.28, 4.0, 0.65)),
+                            (0.0, _noise(0.22, 0.46, 8, seed=28)),
+                            (0.07, _sweep(1200, 180, 0.18, 5.0, 0.28, "square"))]), 0.9)
 
 
 # ---------------------------------------------------------------
